@@ -1,0 +1,7 @@
+{
+  "rewrites": [{ "source": "/(.*)", "destination": "/api" }],
+  "crons": [
+    { "path": "/jobs/sync", "schedule": "*/15 * * * *" },
+    { "path": "/jobs/refresh-webhooks", "schedule": "0 6 * * *" }
+  ]
+}
