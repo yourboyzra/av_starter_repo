@@ -54,3 +54,4 @@ tests/                    # vitest — copy the stripe mapper/connector tests fo
 ## Adding a provider (8-step recipe)
 
 See connector blueprint §7.4. In short: answer the five questions, find the quirks (token rotation? sync tokens? merge-on-push?), implement the three `Connector` methods, write the field-direction table with the client, map both ways, backfill, enable real-time, schedule reconciliation.
+# av_starter_repo
