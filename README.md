@@ -11,7 +11,7 @@ Full rationale and patterns: [`docs/airtable-integration-blueprint.md`](docs/air
 3. Create a scoped PAT; fill `AIRTABLE_PAT`, `AIRTABLE_BASE_ID`, `INTERNAL_JOB_SECRET`.
 4. For Stripe: set `STRIPE_API_KEY` (restricted key) + `STRIPE_WEBHOOK_SECRET`. For a new provider: implement `Connector` in `src/connectors/`, write mappers in `src/mappers/`, register in `src/connectors/registry.ts`.
 5. `npm run dev` -> `GET /health` should return `{ ok: true }`.
-6. Deploy (matrix in chassis blueprint §2): `vercel deploy --prod` or `railway up`. Set env vars in the dashboard.
+6. Deploy — follow **[`docs/DEPLOY.md`](docs/DEPLOY.md)**: pick Vercel or Railway in 30 seconds, then follow only that path's checklist.
 7. Register `https://<app>/webhooks/stripe` with the provider; fire a test event; confirm the record lands.
 8. Run reconciliation once manually: `curl -X POST https://<app>/jobs/sync -H "Authorization: Bearer $INTERNAL_JOB_SECRET"`.
 9. Walk the security checklist (chassis blueprint §9). Ship.
