@@ -10,7 +10,7 @@ Full rationale and patterns: [`docs/airtable-integration-blueprint.md`](docs/air
 2. Create/duplicate the Airtable base. Each synced table needs: `{Provider} ID`, `{Provider} Synced At`, `Sync Status`, `Sync Error`. Add an `Events Log` table (`Event ID`, `Provider`, `Processed At`) and a `Sync Config` table (`Key`, `Value`).
 3. Create a scoped PAT; fill `AIRTABLE_PAT`, `AIRTABLE_BASE_ID`, `INTERNAL_JOB_SECRET`.
 4. For Stripe: set `STRIPE_API_KEY` (restricted key) + `STRIPE_WEBHOOK_SECRET`. For a new provider: implement `Connector` in `src/connectors/`, write mappers in `src/mappers/`, register in `src/connectors/registry.ts`.
-5. `npm run dev` -> `GET /health` should return `{ ok: true }`.
+5. `npm test` (mappers, signature verification, sync-engine guards), then `npm run dev` -> `GET /health` should return `{ ok: true }`.
 6. Deploy — follow **[`docs/DEPLOY.md`](docs/DEPLOY.md)**: pick Vercel or Railway in 30 seconds, then follow only that path's checklist.
 7. Register `https://<app>/webhooks/stripe` with the provider; fire a test event; confirm the record lands.
 8. Run reconciliation once manually: `curl -X POST https://<app>/jobs/sync -H "Authorization: Bearer $INTERNAL_JOB_SECRET"`.
@@ -48,6 +48,7 @@ src/
 │   └── watermarks.ts     # Sync Config table watermarks
 ├── routes/               # health, oauth, webhooks/[provider]
 └── jobs/                 # sync, refresh-webhooks
+tests/                    # vitest — copy the stripe mapper/connector tests for new providers
 ```
 
 ## Adding a provider (8-step recipe)

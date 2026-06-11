@@ -17,4 +17,5 @@ This repo is the template for all Airtable <-> third-party integrations. Bluepri
 - OAuth tokens never live in env vars — use the token manager (`src/lib/oauth.ts`); its refresh is single-flight because providers like QBO rotate refresh tokens.
 - Always build the reconciliation path (`pullChanges` + watermark), even for webhook-driven providers.
 - Mappers are pure functions: payload in, fields out. They are the only per-provider files besides the adapter.
-- `npm run build` (tsc strict) must pass before any commit.
+- `npm run build` (tsc strict) and `npm test` (vitest) must pass before any commit.
+- New providers get tests: mapper tests (pure functions — copy `tests/mappers.stripe.test.ts`) and a `parseWebhook` signature accept/reject test (copy `tests/connectors.stripe.test.ts`). The engine tests are shared and don't change per provider.
