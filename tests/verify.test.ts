@@ -1,6 +1,6 @@
 import { createHmac } from "node:crypto";
 import { describe, expect, it } from "vitest";
-import { verifyHmac, verifyHmacBase64, verifyStripeSignature } from "../src/lib/verify.js";
+import { verifyHmac, verifyHmacBase64, verifyHmacBase64PlainSecret, verifyStripeSignature } from "../src/lib/verify.js";
 
 const SECRET = "test-webhook-secret";
 const BODY = '{"id":"evt_1","type":"customer.created"}';
@@ -31,6 +31,24 @@ describe("verifyHmacBase64 (Airtable-style)", () => {
   it("rejects a wrong signature", () => {
     const secretB64 = Buffer.from(SECRET).toString("base64");
     expect(verifyHmacBase64(BODY, "bm9wZQ==", secretB64)).toBe(false);
+  });
+});
+
+describe("verifyHmacBase64PlainSecret (Shopify-style)", () => {
+  it("accepts a correct base64 signature with a PLAIN (non-base64) secret", () => {
+    const sig = createHmac("sha256", SECRET).update(BODY).digest("base64");
+    expect(verifyHmacBase64PlainSecret(BODY, sig, SECRET)).toBe(true);
+  });
+
+  it("rejects a signature produced the Airtable way (base64-decoded secret)", () => {
+    // Regression guard: these two HMAC schemes must not be interchangeable.
+    const secretB64 = Buffer.from(SECRET).toString("base64");
+    const airtableStyleSig = createHmac("sha256", Buffer.from(secretB64, "base64")).update(BODY).digest("base64");
+    expect(verifyHmacBase64PlainSecret(BODY, airtableStyleSig, secretB64)).toBe(false);
+  });
+
+  it("rejects a wrong signature", () => {
+    expect(verifyHmacBase64PlainSecret(BODY, "bm9wZQ==", SECRET)).toBe(false);
   });
 });
 

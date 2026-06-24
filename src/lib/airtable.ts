@@ -107,6 +107,13 @@ export const airtable = {
     return hits[0] ?? null;
   },
 
+  /** Find multiple records by Airtable record ID in a single request. */
+  async findByIds(table: string, recordIds: string[]): Promise<AirtableRecord[]> {
+    if (recordIds.length === 0) return [];
+    const formula = `OR(${recordIds.map((id) => `RECORD_ID()='${fEscape(id)}'`).join(",")})`;
+    return this.list(table, { filterByFormula: formula });
+  },
+
   async create(table: string, records: { fields: Fields }[], typecast = false): Promise<AirtableRecord[]> {
     const out: AirtableRecord[] = [];
     for (const batch of chunk(records)) {

@@ -5,6 +5,8 @@ import { oauth } from "./routes/oauth.js";
 import { providerWebhooks } from "./routes/webhooks/provider.js";
 import { runSync } from "./jobs/sync.js";
 import { refreshWebhooks } from "./jobs/refresh-webhooks.js";
+import { createVendorShipments, createLuxToCustomerShipment } from "./jobs/shipments.js";
+import { pushShopifyFulfillments } from "./jobs/shopify-fulfillment.js";
 import { registry } from "./connectors/registry.js";
 import { pushOutbound } from "./sync/engine.js";
 
@@ -37,6 +39,40 @@ app.on(["GET", "POST"], "/jobs/sync", async (c) => {
 app.on(["GET", "POST"], "/jobs/refresh-webhooks", async (c) => {
   if (!jobAuthorized(c)) return c.json({ error: "unauthorized" }, 401);
   return c.json(await refreshWebhooks());
+});
+
+/**
+ * Staff-triggered shipment grouping (see src/jobs/shipments.ts). Each call
+ * groups one order's not-yet-grouped line items into Shipments records for
+ * the relevant leg and pushes each to ShipStation. Intentionally two
+ * separate actions, not one — staff trigger each at the point that matches
+ * physical reality (vendor assignment done vs. goods actually received).
+ */
+app.post("/jobs/shipments/create-vendor-shipments", async (c) => {
+  if (!jobAuthorized(c)) return c.json({ error: "unauthorized" }, 401);
+  const body = await c.req.json<{ orderId?: string }>();
+  if (!body.orderId) return c.json({ error: "orderId is required" }, 400);
+  return c.json({ ok: true, ...(await createVendorShipments(body.orderId)) });
+});
+
+app.post("/jobs/shipments/create-lux-to-customer-shipment", async (c) => {
+  if (!jobAuthorized(c)) return c.json({ error: "unauthorized" }, 401);
+  const body = await c.req.json<{ orderId?: string }>();
+  if (!body.orderId) return c.json({ error: "orderId is required" }, 400);
+  return c.json({ ok: true, ...(await createLuxToCustomerShipment(body.orderId)) });
+});
+
+/**
+ * Blueprint external automation #7 (see src/jobs/shopify-fulfillment.ts).
+ * Triggered by a native Airtable automation when Internal Status ->
+ * Fulfilled. Pushes the order's customer-facing Shipments as Shopify
+ * fulfillments (tracking + carrier), triggering Shopify's shipped email.
+ */
+app.post("/jobs/shopify-fulfillment", async (c) => {
+  if (!jobAuthorized(c)) return c.json({ error: "unauthorized" }, 401);
+  const body = await c.req.json<{ orderId?: string }>();
+  if (!body.orderId) return c.json({ error: "orderId is required" }, 400);
+  return c.json({ ok: true, ...(await pushShopifyFulfillments(body.orderId)) });
 });
 
 /**

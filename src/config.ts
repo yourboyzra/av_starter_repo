@@ -1,4 +1,13 @@
+import { config } from "dotenv";
 import { z } from "zod";
+
+// override: true so this project's .env always wins over same-named vars
+// already exported in the shell (e.g. a different AIRTABLE_PAT used for
+// other tools/MCP connections on this machine). Skipped under vitest, which
+// sets its own fake secrets in tests/setup.ts before this module loads.
+if (process.env.NODE_ENV !== "test") {
+  config({ override: true });
+}
 
 /**
  * Fail-fast env validation. The app must crash loudly at startup if config is
@@ -14,6 +23,22 @@ const Env = z.object({
   // Stripe (reference connector)
   STRIPE_API_KEY: z.string().optional(),
   STRIPE_WEBHOOK_SECRET: z.string().optional(),
+
+  // Shopify (custom app — Admin API access token, no OAuth dance)
+  SHOPIFY_STORE_DOMAIN: z.string().optional(), // e.g. your-store.myshopify.com
+  SHOPIFY_ACCESS_TOKEN: z.string().optional(),
+  SHOPIFY_API_VERSION: z.string().default("2026-01"),
+  SHOPIFY_WEBHOOK_SECRET: z.string().optional(),
+
+  // ShipStation (V2 API)
+  SHIPSTATION_API_KEY: z.string().optional(),
+  // Shared-secret header value registered as a custom webhook header (V2 has
+  // no body HMAC) — see src/connectors/shipstation.ts for the exact scheme.
+  SHIPSTATION_WEBHOOK_SECRET: z.string().optional(),
+  // Fallback ship-from when an order has no Vendor linked (or the linked
+  // vendor has no address on file) — a default warehouse_id configured once
+  // in the ShipStation dashboard.
+  SHIPSTATION_WAREHOUSE_ID: z.string().optional(),
 
   // Airtable webhooks to refresh daily (Pattern C, Option 2)
   AIRTABLE_WEBHOOK_IDS: z.string().default(""),

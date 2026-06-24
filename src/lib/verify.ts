@@ -29,6 +29,26 @@ export function verifyHmacBase64(rawBody: string, signature: string, secretBase6
 }
 
 /**
+ * HMAC-SHA256, base64 digest, PLAIN secret (e.g. Shopify's
+ * X-Shopify-Hmac-Sha256 — unlike verifyHmacBase64 above, the secret itself
+ * is a plain string, not base64-encoded; only the digest is base64).
+ */
+export function verifyHmacBase64PlainSecret(rawBody: string, signature: string, secret: string): boolean {
+  const expected = createHmac("sha256", secret).update(rawBody).digest("base64");
+  return safeEqual(expected, signature);
+}
+
+/**
+ * Plain shared-secret header comparison — no HMAC at all. For providers like
+ * ShipStation V2, where webhook "verification" is just configuring a custom
+ * header (key + value) at subscription time that gets echoed back on every
+ * delivery; there's no signature to compute, just a constant-time match.
+ */
+export function verifySharedSecret(received: string | undefined, expected: string): boolean {
+  return typeof received === "string" && safeEqual(received, expected);
+}
+
+/**
  * Stripe-style: signature header `t=<ts>,v1=<sig>[,v1=...]`, HMAC over
  * `${t}.${rawBody}`, with timestamp tolerance for replay protection.
  */
