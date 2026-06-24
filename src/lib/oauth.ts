@@ -96,6 +96,10 @@ export const oauthProviders: Record<string, OAuthProviderConfig> = {
 // ---------------------------------------------------------------------------
 
 const inflight = new Map<string, Promise<TokenSet>>();
+// In-process cache so every provider API call doesn't trigger an Airtable
+// read just to fetch the access token — populated on first load per key,
+// kept fresh by refreshWithProvider below.
+const tokenCache = new Map<string, TokenSet>();
 
 async function refreshWithProvider(provider: string, refreshToken: string): Promise<TokenSet> {
   const cfg = oauthProviders[provider];
@@ -126,8 +130,9 @@ async function refreshWithProvider(provider: string, refreshToken: string): Prom
  */
 export async function getAccessToken(provider: string, connectionId: string): Promise<string> {
   const key = `${provider}:${connectionId}`;
-  const tokens = await tokenStore.load(key);
+  const tokens = tokenCache.get(key) ?? (await tokenStore.load(key));
   if (!tokens) throw new Error(`No stored connection for ${key} — run /oauth/${provider}/start first`);
+  tokenCache.set(key, tokens);
 
   if (tokens.expiresAt - Date.now() > 60_000) return tokens.accessToken;
 
@@ -136,6 +141,7 @@ export async function getAccessToken(provider: string, connectionId: string): Pr
     refresh = (async () => {
       const fresh = await refreshWithProvider(provider, tokens.refreshToken);
       await tokenStore.save(key, fresh); // MUST persist the NEW refresh token before use
+      tokenCache.set(key, fresh);
       return fresh;
     })().finally(() => inflight.delete(key));
     inflight.set(key, refresh);

@@ -1,5 +1,7 @@
+import { createHmac, timingSafeEqual } from "node:crypto";
 import { requireEnv } from "../config.js";
 import { verifyHmacBase64PlainSecret } from "../lib/verify.js";
+import { getAccessToken } from "../lib/oauth.js";
 import {
   InvalidSignatureError,
   NotSupportedError,
@@ -9,14 +11,22 @@ import {
 } from "./types.js";
 
 /**
- * Shopify adapter — custom-app Admin API access token (no OAuth dance),
- * REST Admin API. Inbound-only: Shopify is the source of truth for orders,
- * so push() always throws — nothing in this project writes orders back.
+ * Shopify adapter — REST Admin API. Inbound-only: Shopify is the source of
+ * truth for orders, so push() always throws — nothing in this project
+ * writes orders back (the separate fulfillment push in
+ * src/jobs/shopify-fulfillment.ts is a different, narrower write path).
+ *
+ * Auth: real OAuth (see verifyOAuthHmac/buildAuthorizeUrl/exchangeOAuthCode
+ * below + src/routes/oauth.ts) — legacy static-token custom apps are closed
+ * to new creation as of Jan 1 2026. The resulting offline access token never
+ * expires (we don't opt into `expiring=1`/token rotation), so there's no
+ * refresh cycle once installed — getAccessToken() just returns the cached
+ * token from the Connections table.
  *
  * Quirks:
- * - REST Admin API is "legacy" per Shopify's own docs, but still supported
- *   for custom (single-store) apps — only *new public* apps are forced onto
- *   GraphQL. Fine here since this is a custom app for one store.
+ * - REST Admin API is "legacy" per Shopify's own docs, but custom-distribution
+ *   apps for a single store aren't forced onto GraphQL — only *new public*
+ *   apps are. Fine here.
  * - Line items have no `updated_at` of their own (they inherit the parent
  *   order's) and no back-reference to their order in the payload — order_id
  *   is injected here during flattening.
@@ -45,10 +55,11 @@ async function shopifyRequest<T>(
   url: string,
   init?: { method?: "GET" | "POST"; body?: unknown }
 ): Promise<{ body: T; nextUrl?: string }> {
+  const accessToken = await getAccessToken("shopify", requireEnv("SHOPIFY_STORE_DOMAIN"));
   const res = await fetch(url, {
     method: init?.method ?? "GET",
     headers: {
-      "X-Shopify-Access-Token": requireEnv("SHOPIFY_ACCESS_TOKEN"),
+      "X-Shopify-Access-Token": accessToken,
       ...(init?.body ? { "Content-Type": "application/json" } : {}),
     },
     body: init?.body ? JSON.stringify(init.body) : undefined,
@@ -56,6 +67,73 @@ async function shopifyRequest<T>(
   if (!res.ok) throw new Error(`Shopify ${res.status} ${url}: ${await res.text()}`);
   const body = (await res.json()) as T;
   return { body, nextUrl: parseNextLink(res.headers.get("link")) };
+}
+
+// ---------------------------------------------------------------------------
+// OAuth install flow — distinct from the generic QuickBooks/GHL-shaped
+// scaffold in src/lib/oauth.ts: Shopify signs the install ping AND the
+// callback with its own query-string HMAC (not the app's `state` param),
+// the authorize/token URLs are per-shop, and token exchange auth goes in the
+// POST body, not an Authorization header. See src/routes/oauth.ts.
+// ---------------------------------------------------------------------------
+
+const SHOP_DOMAIN_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9-]*\.myshopify\.com$/;
+
+/** Guards against open-redirect/host-injection via a forged `shop` param. */
+export function isValidShopDomain(shop: string | undefined): shop is string {
+  return typeof shop === "string" && SHOP_DOMAIN_PATTERN.test(shop);
+}
+
+/**
+ * Verify Shopify's query-string HMAC — used on BOTH the initial install ping
+ * and the OAuth callback (same scheme for both): drop `hmac`, sort the
+ * remaining params alphabetically as `key=value` joined by `&`, HMAC-SHA256
+ * hexdigest with the app's Client Secret.
+ */
+export function verifyOAuthHmac(query: Record<string, string | undefined>): boolean {
+  const { hmac, ...rest } = query;
+  if (!hmac) return false;
+  const message = Object.keys(rest)
+    .filter((k) => rest[k] !== undefined)
+    .sort()
+    .map((k) => `${k}=${rest[k]}`)
+    .join("&");
+  const expected = createHmac("sha256", requireEnv("SHOPIFY_APP_CLIENT_SECRET")).update(message).digest("hex");
+  const a = Buffer.from(expected);
+  const b = Buffer.from(hmac);
+  return a.length === b.length && timingSafeEqual(a, b);
+}
+
+const OAUTH_SCOPES = "read_fulfillments,write_fulfillments,read_orders,write_orders,read_products";
+
+export function buildAuthorizeUrl(shop: string, redirectUri: string, state: string): string {
+  const url = new URL(`https://${shop}/admin/oauth/authorize`);
+  url.searchParams.set("client_id", requireEnv("SHOPIFY_APP_CLIENT_ID"));
+  url.searchParams.set("scope", OAUTH_SCOPES);
+  url.searchParams.set("redirect_uri", redirectUri);
+  url.searchParams.set("state", state);
+  return url.toString();
+}
+
+/**
+ * Exchange the OAuth code for an offline access token. We deliberately don't
+ * pass `expiring=1` or `grant_options[]=per-user` — the resulting token is a
+ * permanent offline token with no refresh_token and no expiry, matching how
+ * the rest of this connector expects to use it (no refresh cycle).
+ */
+export async function exchangeOAuthCode(shop: string, code: string): Promise<string> {
+  const res = await fetch(`https://${shop}/admin/oauth/access_token`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      client_id: requireEnv("SHOPIFY_APP_CLIENT_ID"),
+      client_secret: requireEnv("SHOPIFY_APP_CLIENT_SECRET"),
+      code,
+    }),
+  });
+  if (!res.ok) throw new Error(`Shopify token exchange ${res.status}: ${await res.text()}`);
+  const body = (await res.json()) as { access_token: string };
+  return body.access_token;
 }
 
 export interface ShopifyAddress {

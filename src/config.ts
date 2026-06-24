@@ -24,9 +24,11 @@ const Env = z.object({
   STRIPE_API_KEY: z.string().optional(),
   STRIPE_WEBHOOK_SECRET: z.string().optional(),
 
-  // Shopify (custom app — Admin API access token, no OAuth dance)
+  // Shopify — legacy static-token custom apps are closed to new creation as
+  // of Jan 1 2026; this is a real OAuth app (see src/routes/oauth.ts).
   SHOPIFY_STORE_DOMAIN: z.string().optional(), // e.g. your-store.myshopify.com
-  SHOPIFY_ACCESS_TOKEN: z.string().optional(),
+  SHOPIFY_APP_CLIENT_ID: z.string().optional(),
+  SHOPIFY_APP_CLIENT_SECRET: z.string().optional(),
   SHOPIFY_API_VERSION: z.string().default("2026-01"),
   SHOPIFY_WEBHOOK_SECRET: z.string().optional(),
 

@@ -1,7 +1,35 @@
 import { createHmac } from "node:crypto";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { shopifyConnector, listFulfillmentOrders, createFulfillment } from "../src/connectors/shopify.js";
 import { InvalidSignatureError } from "../src/connectors/types.js";
+
+// shopifyRequest fetches an access token via getAccessToken before every
+// call — mock it so listFulfillmentOrders/createFulfillment tests don't hit
+// the real (Airtable-backed) token store.
+vi.mock("../src/lib/oauth.js", () => ({
+  getAccessToken: vi.fn(async () => "fake-access-token"),
+}));
+
+const {
+  shopifyConnector,
+  listFulfillmentOrders,
+  createFulfillment,
+  isValidShopDomain,
+  verifyOAuthHmac,
+  buildAuthorizeUrl,
+  exchangeOAuthCode,
+} = await import("../src/connectors/shopify.js");
+
+/** Uses SHOPIFY_APP_CLIENT_SECRET from tests/setup.ts. */
+const APP_CLIENT_SECRET = "shopify_client_secret_test_dummy";
+
+function signedQuery(params: Record<string, string>) {
+  const message = Object.keys(params)
+    .sort()
+    .map((k) => `${k}=${params[k]}`)
+    .join("&");
+  const hmac = createHmac("sha256", APP_CLIENT_SECRET).update(message).digest("hex");
+  return { ...params, hmac };
+}
 
 /** Uses SHOPIFY_WEBHOOK_SECRET from tests/setup.ts ("whsec_shopify_testsecret"). */
 const SECRET = "whsec_shopify_testsecret";
@@ -115,5 +143,80 @@ describe("createFulfillment", () => {
     ]);
     expect(body.fulfillment.tracking_info).toEqual({ company: "USPS", number: "9400123456" });
     expect(body.fulfillment.notify_customer).toBe(true);
+  });
+});
+
+describe("isValidShopDomain", () => {
+  it("accepts a well-formed myshopify.com domain", () => {
+    expect(isValidShopDomain("lux-lampshade.myshopify.com")).toBe(true);
+  });
+
+  it("rejects anything not ending in .myshopify.com (open-redirect guard)", () => {
+    expect(isValidShopDomain("evil.com")).toBe(false);
+    expect(isValidShopDomain("lux-lampshade.myshopify.com.evil.com")).toBe(false);
+    expect(isValidShopDomain(undefined)).toBe(false);
+    expect(isValidShopDomain("")).toBe(false);
+  });
+});
+
+describe("verifyOAuthHmac", () => {
+  it("accepts a correctly signed query (install ping shape)", () => {
+    const query = signedQuery({ shop: "lux-lampshade.myshopify.com", timestamp: "1700000000" });
+    expect(verifyOAuthHmac(query)).toBe(true);
+  });
+
+  it("accepts a correctly signed query (callback shape, includes code/state)", () => {
+    const query = signedQuery({
+      code: "abc123",
+      shop: "lux-lampshade.myshopify.com",
+      state: "xyz",
+      timestamp: "1700000000",
+    });
+    expect(verifyOAuthHmac(query)).toBe(true);
+  });
+
+  it("rejects a tampered shop param", () => {
+    const query = signedQuery({ shop: "lux-lampshade.myshopify.com", timestamp: "1700000000" });
+    expect(verifyOAuthHmac({ ...query, shop: "evil.myshopify.com" })).toBe(false);
+  });
+
+  it("rejects a missing hmac", () => {
+    expect(verifyOAuthHmac({ shop: "lux-lampshade.myshopify.com" })).toBe(false);
+  });
+});
+
+describe("buildAuthorizeUrl", () => {
+  it("builds the per-shop authorize URL with client_id, scope, redirect_uri, and state", () => {
+    const url = new URL(
+      buildAuthorizeUrl("lux-lampshade.myshopify.com", "https://example.com/oauth/shopify/callback", "state123")
+    );
+    expect(url.origin + url.pathname).toBe("https://lux-lampshade.myshopify.com/admin/oauth/authorize");
+    expect(url.searchParams.get("client_id")).toBe("shopify_client_id_test_dummy");
+    expect(url.searchParams.get("redirect_uri")).toBe("https://example.com/oauth/shopify/callback");
+    expect(url.searchParams.get("state")).toBe("state123");
+    expect(url.searchParams.get("scope")).toContain("read_orders");
+  });
+});
+
+describe("exchangeOAuthCode", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("POSTs form-encoded client_id/client_secret/code and returns the access token", async () => {
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ access_token: "shpat_real_token" }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const token = await exchangeOAuthCode("lux-lampshade.myshopify.com", "auth_code_123");
+
+    expect(token).toBe("shpat_real_token");
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(String(url)).toBe("https://lux-lampshade.myshopify.com/admin/oauth/access_token");
+    expect(init?.method).toBe("POST");
+    expect(init?.headers).toMatchObject({ "Content-Type": "application/x-www-form-urlencoded" });
+    const body = new URLSearchParams(init!.body as string);
+    expect(body.get("client_id")).toBe("shopify_client_id_test_dummy");
+    expect(body.get("client_secret")).toBe(APP_CLIENT_SECRET);
+    expect(body.get("code")).toBe("auth_code_123");
   });
 });
