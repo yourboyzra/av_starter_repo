@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { env } from "./config.js"; // imported first: fail-fast env validation on boot
 import { health } from "./routes/health.js";
+import { form } from "./routes/form.js";
 import { oauth } from "./routes/oauth.js";
 import { providerWebhooks } from "./routes/webhooks/provider.js";
 import { runSync } from "./jobs/sync.js";
@@ -18,6 +19,7 @@ import { pushOutbound } from "./sync/engine.js";
 const app = new Hono();
 
 app.route("/health", health);
+app.route("/form", form);
 app.route("/oauth", oauth);
 app.route("/webhooks", providerWebhooks);
 

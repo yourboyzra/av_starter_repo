@@ -163,6 +163,36 @@ export const airtable = {
   },
 
   /**
+   * Upload a file as an attachment on a record field.
+   * Uses multipart/form-data — separate from the JSON request path.
+   */
+  async uploadAttachment(
+    table: string,
+    recordId: string,
+    field: string,
+    filename: string,
+    contentType: string,
+    fileData: ArrayBuffer
+  ): Promise<void> {
+    const fd = new FormData();
+    fd.append("file", new Blob([fileData], { type: contentType }), filename);
+    fd.append("filename", filename);
+    fd.append("contentType", contentType);
+
+    const url = `https://content.airtableapi.com/v0/${env.AIRTABLE_BASE_ID}/${table}/${recordId}/${field}/uploadAttachment`;
+    const res = await throttled(() =>
+      fetch(url, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${env.AIRTABLE_PAT}` },
+        body: fd,
+      })
+    );
+    if (!res.ok) {
+      throw new Error(`Airtable uploadAttachment ${res.status}: ${await res.text()}`);
+    }
+  },
+
+  /**
    * Refresh an Airtable webhook (they expire after 7 days — an expired webhook
    * is the #1 cause of "the integration silently stopped"). Meta API, but it
    * still goes through this module's throttle/retry per the house rule.

@@ -29,7 +29,7 @@ const Env = z.object({
   SHOPIFY_STORE_DOMAIN: z.string().optional(), // e.g. your-store.myshopify.com
   SHOPIFY_APP_CLIENT_ID: z.string().optional(),
   SHOPIFY_APP_CLIENT_SECRET: z.string().optional(),
-  SHOPIFY_API_VERSION: z.string().default("2026-01"),
+  SHOPIFY_API_VERSION: z.string().default("2026-04"),
   SHOPIFY_WEBHOOK_SECRET: z.string().optional(),
 
   // ShipStation (V2 API)
@@ -44,6 +44,11 @@ const Env = z.object({
 
   // Airtable webhooks to refresh daily (Pattern C, Option 2)
   AIRTABLE_WEBHOOK_IDS: z.string().default(""),
+
+  // QuickBooks Online
+  QUICKBOOKS_REALM_ID: z.string().optional(),             // company/realm ID — comes back in the OAuth callback
+  QUICKBOOKS_ENVIRONMENT: z.enum(["sandbox", "production"]).default("sandbox"),
+  QUICKBOOKS_WEBHOOK_VERIFIER_TOKEN: z.string().optional(), // from QB app > Webhooks page
 
   // OAuth
   OAUTH_REDIRECT_BASE_URL: z.string().url().default("http://localhost:3000"),

@@ -14,4 +14,6 @@ process.env.SHOPIFY_WEBHOOK_SECRET = "whsec_shopify_testsecret";
 process.env.SHIPSTATION_API_KEY = "shipstation_test_dummy";
 process.env.SHIPSTATION_WEBHOOK_SECRET = "shipstation_webhook_testsecret";
 process.env.SHIPSTATION_WAREHOUSE_ID = "se-test-warehouse";
+process.env.QUICKBOOKS_REALM_ID = "9341453935816320";
+process.env.QUICKBOOKS_WEBHOOK_VERIFIER_TOKEN = "qb_webhook_verifier_token_test";
 process.env.NODE_ENV = "test";
