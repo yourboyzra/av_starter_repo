@@ -93,7 +93,6 @@ export async function createVendorShipments(orderId: string): Promise<CreateVend
     const [shipmentRecord] = await airtable.create(SHIPMENTS_TABLE, [
       {
         fields: {
-          "Shipment Name": `${order.fields["Order Number"] ?? orderId} — ${leg} (${itemWord(group.length)})`,
           Order: [orderId],
           Vendor: [vendorId],
           "Line Items": group.map((li) => li.id),

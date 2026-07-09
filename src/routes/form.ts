@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import QRCode from "qrcode";
 import { airtable, type AirtableRecord, type Fields } from "../lib/airtable.js";
+import { r2Configured, uploadToR2 } from "../lib/r2.js";
 
 const MATERIALS_PAGE = "https://airtable.com/app3PUPEUSBE0rF7X/pagk01v2lRJvStKhO";
 
@@ -79,11 +80,16 @@ form.patch("/:orderId/material/:materialId", async (c) => {
     return c.json({ ok: false, error: String(err) }, 500);
   }
   const photo = body["photo"];
-  if (photo instanceof File && photo.size > 0) {
+  if (photo instanceof File && photo.size > 0 && r2Configured()) {
     try {
       const buf = await photo.arrayBuffer();
-      await airtable.uploadAttachment("tblW7xUsp0who2kMc", materialId, "fldEafwixKVbIjXvf",
-        photo.name || "photo.jpg", photo.type || "image/jpeg", buf);
+      const ext = photo.name.split(".").pop() || "jpg";
+      const key = `materials/${materialId}/${Date.now()}.${ext}`;
+      const url = await uploadToR2(key, buf, photo.type || "image/jpeg");
+      await airtable.update("Materials", [{
+        id: materialId,
+        fields: { "Material Image": [{ url, filename: photo.name || `photo.${ext}` }] },
+      }]);
     } catch (uploadErr) {
       console.error("[form] photo upload failed (non-fatal):", uploadErr);
     }
@@ -198,17 +204,16 @@ async function createMaterial(orderId: string, lineItemId: string, fields: Recor
   const [created] = await airtable.create("Materials", [{ fields: recordFields }]);
   if (!created) return;
 
-  if (photo instanceof File && photo.size > 0) {
+  if (photo instanceof File && photo.size > 0 && r2Configured()) {
     try {
       const buf = await photo.arrayBuffer();
-      await airtable.uploadAttachment(
-        "tblW7xUsp0who2kMc",
-        created.id,
-        "fldEafwixKVbIjXvf",
-        photo.name || "photo.jpg",
-        photo.type || "image/jpeg",
-        buf
-      );
+      const ext = photo.name.split(".").pop() || "jpg";
+      const key = `materials/${created.id}/${Date.now()}.${ext}`;
+      const url = await uploadToR2(key, buf, photo.type || "image/jpeg");
+      await airtable.update("Materials", [{
+        id: created.id,
+        fields: { "Material Image": [{ url, filename: photo.name || `photo.${ext}` }] },
+      }]);
     } catch (uploadErr) {
       console.error("[form] photo upload failed (non-fatal):", uploadErr);
     }
