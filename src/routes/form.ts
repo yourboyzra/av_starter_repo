@@ -23,6 +23,15 @@ form.get("/:orderId", async (c) => {
     ? await airtable.findByIds("Line Items", lineItemIds)
     : [];
 
+  // Fetch existing materials linked to these line items
+  const allMaterialIds = lineItems.flatMap(
+    (li) => (li.fields["Materials"] as string[] | undefined) ?? []
+  );
+  const existingMaterials = allMaterialIds.length
+    ? await airtable.findByIds("Materials", allMaterialIds)
+    : [];
+  const materialsById = Object.fromEntries(existingMaterials.map((m) => [m.id, m]));
+
   const qrCodes: Record<string, string> = {};
   for (const li of lineItems) {
     qrCodes[li.id] = await QRCode.toDataURL(`${MATERIALS_PAGE}/${li.id}`, {
@@ -31,11 +40,70 @@ form.get("/:orderId", async (c) => {
     });
   }
 
-  return c.html(renderForm(order, lineItems, qrCodes));
+  return c.html(renderForm(order, lineItems, qrCodes, materialsById));
 });
 
 // GET /form/:orderId/done — success page after Submit All
 form.get("/:orderId/done", (c) => c.html(renderSuccess()));
+
+// ---------------------------------------------------------------------------
+// PATCH /form/:orderId/material/:materialId — update an existing material
+// ---------------------------------------------------------------------------
+form.patch("/:orderId/material/:materialId", async (c) => {
+  const materialId = c.req.param("materialId");
+  let body: Record<string, string | File | (string | File)[]>;
+  try {
+    body = await c.req.parseBody({ all: true });
+  } catch (err) {
+    return c.json({ ok: false, error: String(err) }, 400);
+  }
+  const matName = String(body["materialName"] ?? "").trim();
+  const vendorName = String(body["vendorName"] ?? "").trim();
+  const tracking = String(body["trackingNumber"] ?? "").trim();
+  const notes = String(body["notes"] ?? "").trim();
+  const shippingSource = String(body["shippingSource"] ?? "").trim();
+  const shipFromValue =
+    shippingSource === "Shipping From Me" ? "Ship From Customer" :
+    shippingSource === "Shipping From Vendor" ? "Ship From Vendor" :
+    null;
+  const fields: Fields = {};
+  if (matName) fields["Material Name"] = matName;
+  if (vendorName) fields["Vendor Name"] = vendorName;
+  if (tracking) fields["Material Tracking Number"] = tracking;
+  if (notes) fields["Notes"] = notes;
+  if (shipFromValue) fields["fldXevE3Nxq2aH1RN"] = shipFromValue;
+  try {
+    await airtable.update("Materials", [{ id: materialId, fields }]);
+  } catch (err) {
+    console.error("[form] material update failed:", err);
+    return c.json({ ok: false, error: String(err) }, 500);
+  }
+  const photo = body["photo"];
+  if (photo instanceof File && photo.size > 0) {
+    try {
+      const buf = await photo.arrayBuffer();
+      await airtable.uploadAttachment("tblW7xUsp0who2kMc", materialId, "fldEafwixKVbIjXvf",
+        photo.name || "photo.jpg", photo.type || "image/jpeg", buf);
+    } catch (uploadErr) {
+      console.error("[form] photo upload failed (non-fatal):", uploadErr);
+    }
+  }
+  return c.json({ ok: true, name: matName || null });
+});
+
+// ---------------------------------------------------------------------------
+// DELETE /form/:orderId/material/:materialId — delete a material record
+// ---------------------------------------------------------------------------
+form.delete("/:orderId/material/:materialId", async (c) => {
+  const materialId = c.req.param("materialId");
+  try {
+    await airtable.destroy("Materials", [materialId]);
+  } catch (err) {
+    console.error("[form] material delete failed:", err);
+    return c.json({ ok: false, error: String(err) }, 500);
+  }
+  return c.json({ ok: true });
+});
 
 // ---------------------------------------------------------------------------
 // POST /form/:orderId/item/:lineItemId — AJAX per-item submission
@@ -63,6 +131,28 @@ form.post("/:orderId/item/:lineItemId", async (c) => {
     matMap.get(mk)![fieldName!] = body[key];
   }
 
+  // Update shipped status on existing materials
+  const knownMatIds = Object.keys(body)
+    .filter((k) => k.startsWith("knownMat_"))
+    .map((k) => k.slice("knownMat_".length));
+  if (knownMatIds.length) {
+    try {
+      await airtable.update(
+        "Materials",
+        knownMatIds.map((recId) => ({
+          id: recId,
+          fields: {
+            "Material Status": body[`update_${recId}_shipped`] === "on" ? "Shipped" : "Pending",
+          },
+        }))
+      );
+    } catch (err) {
+      console.error("[form] material status update failed:", err);
+      return c.json({ ok: false, error: String(err) }, 500);
+    }
+  }
+
+  // Create new materials
   let count = 0;
   for (const [, fields] of matMap) {
     try {
@@ -208,6 +298,28 @@ function renderPage(title: string, body: string, inlineScript = ""): string {
     .success h2 { font-size: 1.3rem; font-weight: 700; margin-bottom: 10px; }
     .success p { color: #555; font-size: 0.9rem; }
     .error-box { background: #fff3f3; border: 1px solid #f5c2c2; border-radius: 8px; padding: 16px; color: #b00; font-size: 0.9rem; }
+    .existing-mats-section { margin-bottom: 20px; padding-bottom: 4px; border-bottom: 1px solid #eee; }
+    .existing-mat-row { padding: 10px 0; }
+    .existing-mat-row + .existing-mat-row { border-top: 1px solid #f4f4f4; }
+    .existing-mat-main { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .existing-mat-name { font-size: 0.9rem; font-weight: 500; flex: 1; min-width: 0; }
+    .existing-mat-controls { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+    .edit-mat-btn { font-size: 0.82rem; color: #555; background: none; border: 1.5px solid #ccc; border-radius: 6px; padding: 4px 10px; cursor: pointer; }
+    .edit-mat-btn:hover { border-color: #888; color: #111; }
+    .shipped-label { display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.85rem; color: #444; white-space: nowrap; }
+    .shipped-label input[type=checkbox] { width: 17px; height: 17px; accent-color: #111; flex-shrink: 0; }
+    .status-chip { font-size: 0.75rem; font-weight: 600; padding: 3px 9px; border-radius: 20px; white-space: nowrap; }
+    .status-chip-received { background: #dcfce7; color: #166534; }
+    .status-chip-cancelled { background: #fee2e2; color: #991b1b; }
+    .edit-form { border: 1.5px solid #e5e7eb; border-radius: 10px; padding: 16px; margin-top: 12px; background: #f9fafb; }
+    .edit-form-footer { display: flex; align-items: center; gap: 8px; margin-top: 16px; padding-top: 14px; border-top: 1px solid #eee; flex-wrap: wrap; }
+    .edit-save-btn { padding: 8px 16px; background: #111; color: #fff; border: none; border-radius: 7px; font-size: 0.88rem; font-weight: 600; cursor: pointer; }
+    .edit-save-btn:hover { background: #333; }
+    .edit-save-btn:disabled { background: #999; cursor: default; }
+    .edit-cancel-btn { padding: 8px 14px; background: none; border: 1.5px solid #ccc; border-radius: 7px; font-size: 0.88rem; color: #555; cursor: pointer; }
+    .edit-cancel-btn:hover { border-color: #888; }
+    .delete-mat-btn { margin-left: auto; padding: 8px 14px; background: none; border: 1.5px solid #fca5a5; border-radius: 7px; font-size: 0.88rem; color: #c00; cursor: pointer; }
+    .delete-mat-btn:hover { background: #fff5f5; }
   </style>
 </head>
 <body>
@@ -275,6 +387,94 @@ function renderPage(title: string, body: string, inlineScript = ""): string {
       var first = section.querySelector('input[type=text]');
       if (first) first.focus();
     }
+    function removeMaterialSection(btn, liId) {
+      var section = btn.closest('.material-section');
+      var mats = document.getElementById('mats-' + liId);
+      var remaining = mats ? mats.querySelectorAll('.material-section').length : 0;
+      if (remaining <= 1) {
+        // Last section — if this was opened via "Add a material", collapse the container
+        var newMats = document.getElementById('new-mats-' + liId);
+        var showBtn = document.getElementById('show-new-mat-btn-' + liId);
+        if (newMats && showBtn) {
+          newMats.style.display = 'none';
+          showBtn.style.display = '';
+          return;
+        }
+      }
+      section.remove();
+    }
+    function showNewMatForm(liId) {
+      var div = document.getElementById('new-mats-' + liId);
+      if (div) div.style.display = 'block';
+      var btn = document.getElementById('show-new-mat-btn-' + liId);
+      if (btn) btn.style.display = 'none';
+    }
+    function toggleEditForm(matId) {
+      var form = document.getElementById('edit-form-' + matId);
+      if (!form) return;
+      form.style.display = form.style.display === 'none' ? 'block' : 'none';
+    }
+    function toggleEditShipping(matId, radio) {
+      var fv = document.getElementById('efv-' + matId);
+      if (fv) fv.style.display = radio.value === 'Shipping From Vendor' ? 'block' : 'none';
+    }
+    async function saveEdit(matId, btn) {
+      var editForm = document.getElementById('edit-form-' + matId);
+      if (!editForm) return;
+      var prefix = 'edit_' + matId + '_';
+      var fd = new FormData();
+      editForm.querySelectorAll('[name]').forEach(function(el) {
+        if (el.type === 'radio' && !el.checked) return;
+        var cleanName = el.name.startsWith(prefix) ? el.name.slice(prefix.length) : el.name;
+        if (el.type === 'file') { if (el.files && el.files[0]) fd.append(cleanName, el.files[0]); }
+        else fd.append(cleanName, el.value);
+      });
+      btn.disabled = true; btn.textContent = 'Updating…';
+      try {
+        var res = await fetch(FORM_URL + '/material/' + matId, { method: 'PATCH', body: fd });
+        var data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Update failed');
+        var nameEl = document.querySelector('#existing-mat-row-' + matId + ' .existing-mat-name');
+        var newName = fd.get('materialName');
+        if (nameEl && newName) nameEl.textContent = newName;
+        toggleEditForm(matId);
+        var editBtn = document.querySelector('#existing-mat-row-' + matId + ' .edit-mat-btn');
+        if (editBtn) {
+          editBtn.textContent = 'Updated ✓';
+          editBtn.style.color = '#16a34a';
+          editBtn.style.borderColor = '#16a34a';
+          setTimeout(function() {
+            editBtn.textContent = 'Edit';
+            editBtn.style.color = '';
+            editBtn.style.borderColor = '';
+          }, 1500);
+        }
+      } catch(e) {
+        alert('Could not save changes. Please try again.');
+      }
+      btn.disabled = false; btn.textContent = 'Update';
+    }
+    async function deleteMaterial(matId, liId, btn) {
+      if (!confirm('Delete this material? This cannot be undone.')) return;
+      btn.disabled = true; btn.textContent = 'Deleting…';
+      try {
+        var res = await fetch(FORM_URL + '/material/' + matId, { method: 'DELETE' });
+        if (!res.ok) throw new Error();
+        var row = document.getElementById('existing-mat-row-' + matId);
+        if (row) row.remove();
+        var existing = document.getElementById('existing-mats-' + liId);
+        if (existing && !existing.querySelector('.existing-mat-row')) {
+          existing.remove();
+          var showBtn = document.getElementById('show-new-mat-btn-' + liId);
+          if (showBtn) showBtn.remove();
+          var newMats = document.getElementById('new-mats-' + liId);
+          if (newMats) newMats.style.display = 'block';
+        }
+      } catch(e) {
+        btn.disabled = false; btn.textContent = 'Delete';
+        alert('Could not delete. Please try again.');
+      }
+    }
     async function saveItem(liId, btn) {
       var container = document.getElementById('mats-' + liId);
       var fd = new FormData();
@@ -288,7 +488,18 @@ function renderPage(title: string, body: string, inlineScript = ""): string {
           }
         });
       });
+      var existingSection = document.getElementById('existing-mats-' + liId);
+      if (existingSection) {
+        existingSection.querySelectorAll('[name]').forEach(function(el) {
+          if (el.type === 'checkbox') {
+            if (el.checked) fd.append(el.name, 'on');
+          } else {
+            fd.append(el.name, el.value);
+          }
+        });
+      }
       var errEl = btn.parentElement.querySelector('.item-error');
+      var origText = btn.textContent;
       btn.disabled = true;
       btn.textContent = 'Saving…';
       try {
@@ -299,10 +510,16 @@ function renderPage(title: string, body: string, inlineScript = ""): string {
         var card = document.getElementById('card-' + liId);
         if (card) card.classList.add('card-done');
         if (errEl) errEl.textContent = '';
+        setTimeout(function() {
+          btn.textContent = origText;
+          btn.classList.remove('saved');
+          btn.disabled = false;
+          if (card) card.classList.remove('card-done');
+        }, 1500);
         return true;
       } catch (e) {
         btn.disabled = false;
-        btn.textContent = 'Save';
+        btn.textContent = origText;
         if (errEl) errEl.textContent = 'Something went wrong, please try again.';
         return false;
       }
@@ -332,16 +549,18 @@ function materialSectionHtml(
   idxStr: string,
   firstSection: boolean,
   qrDataUri: string,
-  liName: string
+  liName: string,
+  showRemoveOnFirst = false
 ): string {
   const prefix = `mat_${liId}_${idxStr}`;
   const uid = `${liId}_${idxStr}`;
   const dlName = `qr-${liName.replace(/[^a-z0-9]/gi, "-").toLowerCase()}.png`;
+  const showRemove = !firstSection || showRemoveOnFirst;
 
   return `<div class="material-section" data-uid="${uid}">
   <div class="mat-header">
     <span class="mat-label">${firstSection ? "Material" : "Additional material"}</span>
-    ${firstSection ? "" : `<button type="button" class="remove-btn" onclick="this.closest('.material-section').remove()">Remove</button>`}
+    ${showRemove ? `<button type="button" class="remove-btn" onclick="removeMaterialSection(this, '${liId}')">Remove</button>` : ""}
   </div>
 
   <div class="field">
@@ -412,12 +631,93 @@ function materialSectionHtml(
 </div>`;
 }
 
-function renderLineItemCard(li: AirtableRecord, qrDataUri: string): string {
+function renderExistingMatsSection(liId: string, mats: AirtableRecord[]): string {
+  if (!mats.length) return "";
+  const rows = mats.map((mat) => {
+    const name = esc(str(mat.fields, "Material Name")) || "Unnamed material";
+    const status = str(mat.fields, "Material Status");
+    const locked = status === "Received" || status === "Cancelled";
+    const isShipped = status === "Shipped";
+    const chipClass = status === "Received" ? "status-chip-received" : "status-chip-cancelled";
+    const p = `edit_${mat.id}_`; // field name prefix — keeps radio groups isolated per material
+
+    // Pre-fill edit form from existing record values
+    const existingVendor = esc(str(mat.fields, "Vendor Name"));
+    const existingTracking = esc(str(mat.fields, "Material Tracking Number"));
+    const existingNotes = esc(str(mat.fields, "Notes"));
+    const shipFromAT = str(mat.fields, "Ship From");
+    const fromVendor = shipFromAT === "Ship From Vendor";
+    const fromMe = shipFromAT === "Ship From Customer";
+
+    const editForm = locked ? "" : `<div id="edit-form-${mat.id}" class="edit-form" style="display:none">
+  <div class="field">
+    <label class="field-label">Material name</label>
+    <input type="text" name="${p}materialName" value="${name}" placeholder="e.g. ivory silk dupioni, 3 yards">
+  </div>
+  <div class="field">
+    <label class="field-label">Shipping method</label>
+    <div class="radio-group">
+      <label class="radio-opt">
+        <input type="radio" name="${p}shippingSource" value="Shipping From Me"${fromMe ? " checked" : ""} onchange="toggleEditShipping('${mat.id}', this)">
+        I'll ship it to Lux Lampshades myself
+      </label>
+      <label class="radio-opt">
+        <input type="radio" name="${p}shippingSource" value="Shipping From Vendor"${fromVendor ? " checked" : ""} onchange="toggleEditShipping('${mat.id}', this)">
+        My vendor will ship it directly
+      </label>
+    </div>
+  </div>
+  <div id="efv-${mat.id}" class="conditional"${fromVendor ? ' style="display:block"' : ''}>
+    <div class="field">
+      <label class="field-label">Vendor name</label>
+      <input type="text" name="${p}vendorName" value="${existingVendor}" placeholder="e.g. Fabric House NYC">
+    </div>
+    <div class="field">
+      <label class="field-label">Tracking number</label>
+      <input type="text" name="${p}trackingNumber" value="${existingTracking}" placeholder="Carrier tracking number">
+    </div>
+  </div>
+  <div class="field">
+    <label class="field-label">Notes</label>
+    <textarea name="${p}notes" placeholder="Color details, special instructions, etc.">${existingNotes}</textarea>
+  </div>
+  <div class="edit-form-footer">
+    <button type="button" class="edit-save-btn" onclick="saveEdit('${mat.id}', this)">Update</button>
+    <button type="button" class="edit-cancel-btn" onclick="toggleEditForm('${mat.id}')">Cancel</button>
+    <button type="button" class="delete-mat-btn" onclick="deleteMaterial('${mat.id}', '${liId}', this)">Delete material</button>
+  </div>
+</div>`;
+
+    return `<div class="existing-mat-row" id="existing-mat-row-${mat.id}">
+  <input type="hidden" name="knownMat_${mat.id}" value="${mat.id}">
+  <div class="existing-mat-main">
+    <span class="existing-mat-name">${name}</span>
+    <div class="existing-mat-controls">
+      ${locked
+        ? `<span class="status-chip ${chipClass}">${esc(status)}</span>`
+        : `<button type="button" class="edit-mat-btn" onclick="toggleEditForm('${mat.id}')">Edit</button>
+      <label class="shipped-label">
+        <input type="checkbox" name="update_${mat.id}_shipped"${isShipped ? " checked" : ""}>
+        I've shipped this
+      </label>`}
+    </div>
+  </div>
+  ${editForm}
+</div>`;
+  }).join("\n");
+  return `<div class="existing-mats-section" id="existing-mats-${liId}">
+  <div class="mat-label" style="margin-bottom:12px">Previously submitted materials</div>
+  ${rows}
+</div>`;
+}
+
+function renderLineItemCard(li: AirtableRecord, qrDataUri: string, existingMats: AirtableRecord[] = []): string {
   const f = li.fields;
   const id = li.id;
   const title = str(f, "Line Item") || "Item";
   const variant = str(f, "Variant / Description");
   const qty = str(f, "Quantity");
+  const hasExisting = existingMats.length > 0;
 
   return `<div class="card" id="card-${id}">
   <div class="card-header">
@@ -428,14 +728,22 @@ function renderLineItemCard(li: AirtableRecord, qrDataUri: string): string {
     <span class="done-badge">Saved</span>
   </div>
 
-  <div id="mats-${id}">
-    ${materialSectionHtml(id, "0", true, qrDataUri, title)}
-  </div>
+  ${renderExistingMatsSection(id, existingMats)}
 
-  <button type="button" class="add-mat-btn" onclick="addMaterial('${id}')">
+  ${hasExisting ? `<button type="button" class="add-mat-btn" id="show-new-mat-btn-${id}" onclick="showNewMatForm('${id}')">
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-    Add another material for this item
-  </button>
+    Add a material for this item
+  </button>` : ""}
+
+  <div id="new-mats-${id}"${hasExisting ? ' style="display:none"' : ''}>
+    <div id="mats-${id}">
+      ${materialSectionHtml(id, "0", true, qrDataUri, title, hasExisting)}
+    </div>
+    <button type="button" class="add-mat-btn" onclick="addMaterial('${id}')">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Add another material for this item
+    </button>
+  </div>
 
   <div class="card-footer">
     <button type="button" class="item-save-btn" onclick="saveItem('${id}', this)">Save ${esc(title)}</button>
@@ -451,14 +759,19 @@ function renderLineItemCard(li: AirtableRecord, qrDataUri: string): string {
 function renderForm(
   order: AirtableRecord,
   lineItems: AirtableRecord[],
-  qrCodes: Record<string, string>
+  qrCodes: Record<string, string>,
+  materialsById: Record<string, AirtableRecord> = {}
 ): string {
   const orderNum = esc(str(order.fields, "Order Number"));
   const customerName = esc(str(order.fields, "Customer Name"));
   const orderId = order.id;
 
   const itemsHtml = lineItems.length > 0
-    ? lineItems.map((li) => renderLineItemCard(li, qrCodes[li.id] ?? "")).join("\n")
+    ? lineItems.map((li) => {
+        const matIds = (li.fields["Materials"] as string[] | undefined) ?? [];
+        const existingMats = matIds.map((id) => materialsById[id]).filter(Boolean) as AirtableRecord[];
+        return renderLineItemCard(li, qrCodes[li.id] ?? "", existingMats);
+      }).join("\n")
     : '<div class="error-box">No items found for this order.</div>';
 
   const initScript = `var FORM_URL = '/form/${orderId}';`;
