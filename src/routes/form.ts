@@ -143,15 +143,23 @@ form.post("/:orderId/item/:lineItemId", async (c) => {
     .map((k) => k.slice("knownMat_".length));
   if (knownMatIds.length) {
     try {
-      await airtable.update(
-        "Materials",
-        knownMatIds.map((recId) => ({
-          id: recId,
-          fields: {
-            "Material Status": body[`update_${recId}_shipped`] === "on" ? "Shipped" : "Pending",
-          },
-        }))
-      );
+      const statusUpdates = knownMatIds.flatMap((recId) => {
+        const shipped = body[`update_${recId}_shipped`] === "on";
+        const tracking = String(body[`update_${recId}_tracking`] ?? "").trim();
+        const shipFrom = String(body[`update_${recId}_shipfrom`] ?? "").trim();
+        const vendorShipping = shipFrom === "Ship From Vendor";
+        const fields: Fields = {};
+        if (!shipped) {
+          fields["Material Status"] = "Pending";
+        } else if (!vendorShipping || tracking) {
+          // Ship From Customer: can mark shipped without tracking (QR code handles identification)
+          // Ship From Vendor: only mark shipped if tracking provided
+          fields["Material Status"] = "Shipped";
+          if (tracking) fields["Material Tracking Number"] = tracking;
+        }
+        return Object.keys(fields).length ? [{ id: recId, fields }] : [];
+      });
+      if (statusUpdates.length) await airtable.update("Materials", statusUpdates);
     } catch (err) {
       console.error("[form] material status update failed:", err);
       return c.json({ ok: false, error: String(err) }, 500);
@@ -368,7 +376,11 @@ function renderPage(title: string, body: string, inlineScript = ""): string {
       var me = document.getElementById('fm-' + uid);
       var vendor = document.getElementById('fv-' + uid);
       if (me) me.style.display = radio.value === 'Shipping From Me' ? 'block' : 'none';
-      if (vendor) vendor.style.display = radio.value === 'Shipping From Vendor' ? 'block' : 'none';
+      if (vendor) {
+        vendor.style.display = radio.value === 'Shipping From Vendor' ? 'block' : 'none';
+        var trackInput = vendor.querySelector('input[type=text]');
+        if (trackInput) trackInput.style.borderColor = '';
+      }
     }
     function setupFileInput(input) {
       input.addEventListener('change', function() {
@@ -413,6 +425,15 @@ function renderPage(title: string, body: string, inlineScript = ""): string {
       if (div) div.style.display = 'block';
       var btn = document.getElementById('show-new-mat-btn-' + liId);
       if (btn) btn.style.display = 'none';
+    }
+    function toggleShippedTracking(cb, matId) {
+      var wrap = document.getElementById('shipped-tracking-' + matId);
+      if (!wrap) return;
+      wrap.style.display = cb.checked ? 'block' : 'none';
+      if (cb.checked) {
+        var input = wrap.querySelector('input');
+        if (input) setTimeout(function() { input.focus(); }, 50);
+      }
     }
     function toggleEditForm(matId) {
       var form = document.getElementById('edit-form-' + matId);
@@ -702,11 +723,15 @@ function renderExistingMatsSection(liId: string, mats: AirtableRecord[]): string
         ? `<span class="status-chip ${chipClass}">${esc(status)}</span>`
         : `<button type="button" class="edit-mat-btn" onclick="toggleEditForm('${mat.id}')">Edit</button>
       <label class="shipped-label">
-        <input type="checkbox" name="update_${mat.id}_shipped"${isShipped ? " checked" : ""}>
+        <input type="checkbox" name="update_${mat.id}_shipped"${isShipped ? " checked" : ""} onchange="toggleShippedTracking(this,'${mat.id}')">
         I've shipped this
       </label>`}
     </div>
   </div>
+  ${locked ? "" : `<input type="hidden" name="update_${mat.id}_shipfrom" value="${esc(shipFromAT)}">
+  <div id="shipped-tracking-${mat.id}" style="margin-top:8px;${isShipped ? "" : "display:none"}">
+    <input type="text" name="update_${mat.id}_tracking" value="${existingTracking}" placeholder="${fromVendor ? "Tracking number (required to mark shipped)" : "Tracking number (optional)"}" style="width:100%;border:1px solid #ddd;border-radius:7px;padding:8px 11px;font-size:0.875rem;font-family:inherit;background:#fafafa;color:#111">
+  </div>`}
   ${editForm}
 </div>`;
   }).join("\n");
