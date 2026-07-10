@@ -8,6 +8,8 @@ import { runSync } from "./jobs/sync.js";
 import { refreshWebhooks } from "./jobs/refresh-webhooks.js";
 import { createVendorShipments, createLuxToCustomerShipment } from "./jobs/shipments.js";
 import { pushShopifyFulfillments } from "./jobs/shopify-fulfillment.js";
+import { fetchAndWriteRates, purchaseLabel } from "./jobs/shipstation-rates.js";
+import { createPO } from "./jobs/quickbooks-po.js";
 import { registry } from "./connectors/registry.js";
 import { pushOutbound } from "./sync/engine.js";
 
@@ -75,6 +77,37 @@ app.post("/jobs/shopify-fulfillment", async (c) => {
   const body = await c.req.json<{ orderId?: string }>();
   if (!body.orderId) return c.json({ error: "orderId is required" }, 400);
   return c.json({ ok: true, ...(await pushShopifyFulfillments(body.orderId)) });
+});
+
+/**
+ * QuickBooks PO creation — dedicated endpoint so DocNumber is written back
+ * to Airtable immediately from the create response, not on the next sync.
+ * Update the Airtable automation script to call this instead of /jobs/outbound.
+ */
+app.post("/jobs/quickbooks/create-po", async (c) => {
+  if (!jobAuthorized(c)) return c.json({ error: "unauthorized" }, 401);
+  const body = await c.req.json<{ recordId?: string }>();
+  if (!body.recordId) return c.json({ error: "recordId is required" }, 400);
+  return c.json({ ok: true, ...(await createPO(body.recordId)) });
+});
+
+/**
+ * ShipStation rate fetch and label purchase (see src/jobs/shipstation-rates.ts).
+ * "Get Rates" button on a Shipments record calls /rates; staff picks a row in
+ * the Rates table; "Purchase Label" button on that Rate record calls /create-label.
+ */
+app.post("/jobs/shipstation/rates", async (c) => {
+  if (!jobAuthorized(c)) return c.json({ error: "unauthorized" }, 401);
+  const body = await c.req.json<{ shipmentRecordId?: string }>();
+  if (!body.shipmentRecordId) return c.json({ error: "shipmentRecordId is required" }, 400);
+  return c.json({ ok: true, ...(await fetchAndWriteRates(body.shipmentRecordId)) });
+});
+
+app.post("/jobs/shipstation/create-label", async (c) => {
+  if (!jobAuthorized(c)) return c.json({ error: "unauthorized" }, 401);
+  const body = await c.req.json<{ rateRecordId?: string }>();
+  if (!body.rateRecordId) return c.json({ error: "rateRecordId is required" }, 400);
+  return c.json({ ok: true, ...(await purchaseLabel(body.rateRecordId)) });
 });
 
 /**

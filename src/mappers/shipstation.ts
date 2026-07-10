@@ -98,11 +98,22 @@ export const shipstationSpecs: ProviderSpecs = {
       const weightValue = Number(fields["Weight"] ?? 0);
       const weightUnit = typeof fields["Weight Unit"] === "string" ? (fields["Weight Unit"] as string) : "pound";
 
+      const length = Number(fields["Length"] ?? 0);
+      const width = Number(fields["Width"] ?? 0);
+      const height = Number(fields["Height"] ?? 0);
+      const sizeUnit = typeof fields["Size Unit"] === "string" ? (fields["Size Unit"] as string) : "inch";
+      const hasDimensions = length > 0 && width > 0 && height > 0;
+
       return {
         external_shipment_id: String(fields["Shipment Name"] ?? airtableRecordId),
         ship_to: shipTo(fields),
         ...(vendorAddr ? { ship_from: vendorAddr } : { warehouse_id: requireEnv("SHIPSTATION_WAREHOUSE_ID") }),
-        packages: [{ weight: { value: weightValue, unit: weightUnit } }],
+        packages: [
+          {
+            weight: { value: weightValue, unit: weightUnit },
+            ...(hasDimensions ? { dimensions: { length, width, height, unit: sizeUnit } } : {}),
+          },
+        ],
       };
     },
   },

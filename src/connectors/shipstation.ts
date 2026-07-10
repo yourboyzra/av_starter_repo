@@ -76,7 +76,10 @@ async function listShipmentsSince(since: string): Promise<ShipStationShipment[]>
       "GET",
       `/v2/shipments?${qs}`
     );
-    out.push(...result.shipments);
+    // Only track shipments we created from Airtable — external_shipment_id is
+    // set to the Airtable record ID on push. Shipments created directly in
+    // ShipStation have it null/empty and should not flow back in.
+    out.push(...result.shipments.filter((s) => s.external_shipment_id));
     if (result.page >= result.pages) break;
     page++;
   }
@@ -98,6 +101,46 @@ function extractShipmentId(payload: unknown): string | undefined {
   const p = payload as Record<string, unknown>;
   const candidate = p["shipment_id"] ?? (p["shipment"] as Record<string, unknown> | undefined)?.["shipment_id"];
   return typeof candidate === "string" ? candidate : undefined;
+}
+
+export interface ShipStationRate {
+  rate_id: string;
+  service_code: string;
+  service_type: string;
+  carrier_friendly_name: string;
+  shipping_amount: { amount: number; currency: string };
+  carrier_delivery_days?: string | null;
+  error_messages?: string[];
+}
+
+/** Fetch available rates for a shipment spec built by mapOut. */
+export async function getShipmentRates(shipmentSpec: Record<string, unknown>): Promise<ShipStationRate[]> {
+  const result = await shipstationRequest<{ rates: ShipStationRate[] }>("POST", "/v2/rates", {
+    shipment: shipmentSpec,
+  });
+  return result.rates ?? [];
+}
+
+/**
+ * Purchase a label using a previously-quoted ShipStation rate_id.
+ * This is the one place in the codebase that spends real postage money —
+ * it is intentionally NOT wired into the generic push/pullChanges flow.
+ */
+export async function createLabelFromRate(rateId: string): Promise<{ trackingNumber: string; labelId: string; shipmentId: string }> {
+  const result = await shipstationRequest<{
+    label_id: string;
+    shipment_id: string;
+    tracking_number: string;
+  }>("POST", `/v2/labels/rates/${rateId}`, {
+    label_format: "pdf",
+    label_layout: "4x6",
+    display_scheme: "label",
+  });
+  return {
+    trackingNumber: result.tracking_number,
+    labelId: result.label_id,
+    shipmentId: result.shipment_id,
+  };
 }
 
 export const shipstationConnector: Connector = {

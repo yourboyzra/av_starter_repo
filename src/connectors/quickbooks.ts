@@ -87,6 +87,38 @@ function normalizeEntity(entity: string, obj: QBEntity): ExternalRecord {
   };
 }
 
+/**
+ * Create or update a QB PurchaseOrder, returning both the Id and DocNumber
+ * so callers can write the human-readable PO number back to Airtable
+ * immediately without waiting for the next inbound sync cycle.
+ */
+export async function createOrUpdatePurchaseOrder(
+  externalId: string | null,
+  data: unknown
+): Promise<{ id: string; docNumber?: string }> {
+  if (externalId) {
+    const current = await qbRequest<Record<string, QBEntity>>("GET", `purchaseorder/${externalId}`);
+    const key = Object.keys(current).find((k) => k !== "time");
+    const syncToken = key ? current[key]?.SyncToken : undefined;
+    if (!syncToken) throw new Error(`Could not read SyncToken for purchaseorder ${externalId}`);
+    const payload = { ...(data as object), Id: externalId, SyncToken: syncToken, sparse: true };
+    const result = await qbRequest<Record<string, QBEntity>>("POST", "purchaseorder?operation=update", payload);
+    const resultKey = Object.keys(result).find((k) => k !== "time");
+    return {
+      id: resultKey ? (result[resultKey]!.Id ?? externalId) : externalId,
+      docNumber: resultKey ? (result[resultKey]!.DocNumber as string | undefined) : undefined,
+    };
+  }
+
+  const result = await qbRequest<Record<string, QBEntity>>("POST", "purchaseorder", data);
+  const resultKey = Object.keys(result).find((k) => k !== "time");
+  if (!resultKey || !result[resultKey]?.Id) throw new Error("QuickBooks purchaseorder create returned no Id");
+  return {
+    id: result[resultKey]!.Id,
+    docNumber: result[resultKey]!.DocNumber as string | undefined,
+  };
+}
+
 export const quickbooksConnector: Connector = {
   name: "quickbooks",
 
