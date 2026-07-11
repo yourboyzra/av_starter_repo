@@ -1,7 +1,4 @@
 import { airtable, type AirtableRecord, type Fields } from "../lib/airtable.js";
-import { pushOutbound } from "../sync/engine.js";
-import { shipstationConnector } from "../connectors/shipstation.js";
-import { shipstationSpecs } from "../mappers/shipstation.js";
 
 /**
  * Bespoke, staff-triggered shipment-grouping jobs. NOT part of the generic
@@ -46,10 +43,6 @@ function itemWord(count: number): string {
   return `${count} item${count === 1 ? "" : "s"}`;
 }
 
-async function pushNewShipment(shipmentRecordId: string): Promise<void> {
-  await pushOutbound(shipstationConnector, shipstationSpecs["shipment"]!, "shipment", shipmentRecordId);
-}
-
 export interface CreateVendorShipmentsResult {
   created: { shipmentRecordId: string; vendorId: string; lineItemCount: number }[];
 }
@@ -89,21 +82,42 @@ export async function createVendorShipments(orderId: string): Promise<CreateVend
   const leg = order.fields["Ship To"] === "Lux Lampshade" ? "Vendor to Lux" : "Vendor to Customer";
   const created: CreateVendorShipmentsResult["created"] = [];
 
+  // Build a map of vendorId -> existing Shipment record so new line items are
+  // appended to the existing record rather than creating a second one per vendor.
+  const existingByVendor = new Map<string, AirtableRecord>();
+  for (const shipment of existingShipments) {
+    const shipmentLeg = shipment.fields["Leg"];
+    if (shipmentLeg === "Vendor to Customer" || shipmentLeg === "Vendor to Lux") {
+      for (const vendorId of linkedIds(shipment.fields, "Vendor")) {
+        existingByVendor.set(vendorId, shipment);
+      }
+    }
+  }
+
   for (const [vendorId, group] of byVendor) {
-    const [shipmentRecord] = await airtable.create(SHIPMENTS_TABLE, [
-      {
-        fields: {
-          Order: [orderId],
-          Vendor: [vendorId],
-          "Line Items": group.map((li) => li.id),
-          Leg: leg,
-          "Notify Customer": false, // opt-in only — staff must proactively check this before Shopify emails the customer
-          "Sync Status": "Pending",
+    const existing = existingByVendor.get(vendorId);
+
+    if (existing) {
+      // Append new line items to the existing Shipment record.
+      const currentLineItems = linkedIds(existing.fields, "Line Items");
+      const merged = [...new Set([...currentLineItems, ...group.map((li) => li.id)])];
+      await airtable.update(SHIPMENTS_TABLE, [{ id: existing.id, fields: { "Line Items": merged } }]);
+      created.push({ shipmentRecordId: existing.id, vendorId, lineItemCount: group.length });
+    } else {
+      const [shipmentRecord] = await airtable.create(SHIPMENTS_TABLE, [
+        {
+          fields: {
+            Order: [orderId],
+            Vendor: [vendorId],
+            "Line Items": group.map((li) => li.id),
+            Leg: leg,
+            "Notify Customer": false,
+            "Sync Status": "Pending",
+          },
         },
-      },
-    ]);
-    await pushNewShipment(shipmentRecord!.id);
-    created.push({ shipmentRecordId: shipmentRecord!.id, vendorId, lineItemCount: group.length });
+      ]);
+      created.push({ shipmentRecordId: shipmentRecord!.id, vendorId, lineItemCount: group.length });
+    }
   }
 
   return { created };
@@ -162,7 +176,5 @@ export async function createLuxToCustomerShipment(orderId: string): Promise<Crea
       },
     },
   ]);
-  await pushNewShipment(shipmentRecord!.id);
-
   return { created: { shipmentRecordId: shipmentRecord!.id, lineItemCount: eligible.length } };
 }
