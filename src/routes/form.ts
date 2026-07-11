@@ -166,6 +166,32 @@ form.post("/:orderId/item/:lineItemId", async (c) => {
     }
   }
 
+  // Update line item detail fields
+  if (String(body["li_hasDetails"] ?? "") === "1") {
+    const liStyle = String(body["li_style"] ?? "").trim();
+    const liFitting = String(body["li_fitting"] ?? "").trim();
+    const liColor = String(body["li_color"] ?? "").trim();
+    const liType = String(body["li_type"] ?? "").trim();
+    const liTopDiameterStr = String(body["li_topDiameter"] ?? "").trim();
+    const liSlantStr = String(body["li_slant"] ?? "").trim();
+    const liTrimIncluded = body["li_trimIncluded"] === "on";
+    const liNotes = String(body["li_notes"] ?? "").trim();
+    const liDetailFields: Fields = { "Trim Included": liTrimIncluded };
+    if (liStyle) liDetailFields["Style"] = liStyle;
+    if (liFitting) liDetailFields["Fitting"] = liFitting;
+    if (liColor) liDetailFields["Color"] = liColor;
+    if (liType) liDetailFields["Type"] = liType;
+    if (liTopDiameterStr) liDetailFields["Top Diameter (in)"] = Number(liTopDiameterStr);
+    if (liSlantStr) liDetailFields["Slant (in)"] = Number(liSlantStr);
+    if (liNotes) liDetailFields["Notes"] = liNotes;
+    try {
+      await airtable.update("Line Items", [{ id: lineItemId, fields: liDetailFields }]);
+    } catch (err) {
+      console.error("[form] line item detail update failed:", err);
+      return c.json({ ok: false, error: String(err) }, 500);
+    }
+  }
+
   // Create new materials
   let count = 0;
   for (const [, fields] of matMap) {
@@ -333,6 +359,23 @@ function renderPage(title: string, body: string, inlineScript = ""): string {
     .edit-cancel-btn:hover { border-color: #888; }
     .delete-mat-btn { margin-left: auto; padding: 8px 14px; background: none; border: 1.5px solid #fca5a5; border-radius: 7px; font-size: 0.88rem; color: #c00; cursor: pointer; }
     .delete-mat-btn:hover { background: #fff5f5; }
+    .li-details { background: #f0ece4; border: 1.5px solid #d9d3c8; border-radius: 10px; padding: 14px 16px; margin-bottom: 24px; }
+    .li-details-header { display: flex; justify-content: space-between; align-items: center; font-size: 0.75rem; font-weight: 700; color: #444; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 10px; }
+    .materials-label { font-size: 0.75rem; font-weight: 700; color: #999; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 14px; }
+    .li-details-edit-btn { font-size: 0.8rem; font-weight: 600; color: #555; background: none; border: 1.5px solid #ccc; border-radius: 6px; padding: 4px 10px; cursor: pointer; text-transform: none; letter-spacing: 0; flex-shrink: 0; }
+    .li-details-edit-btn:hover { border-color: #888; color: #111; }
+    .li-details-summary { font-size: 0.85rem; color: #555; line-height: 1.4; }
+    .li-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .li-select { width: 100%; border: 1px solid #ddd; border-radius: 8px; padding: 10px 12px; font-size: 0.95rem; font-family: inherit; background: #fafafa; color: #111; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; padding-right: 32px; }
+    .li-select:focus { outline: none; border-color: #555; background-color: #fff; }
+    .checkbox-opt { display: flex; align-items: center; gap: 10px; font-size: 0.9rem; color: #333; cursor: pointer; padding: 4px 0; }
+    .checkbox-opt input[type=checkbox] { width: 17px; height: 17px; accent-color: #111; flex-shrink: 0; }
+    .li-details-actions { display: flex; align-items: center; gap: 8px; margin-top: 4px; padding-top: 14px; border-top: 1px solid #d9d3c8; }
+    .li-spec-save-btn { padding: 8px 16px; background: #111; color: #fff; border: none; border-radius: 7px; font-size: 0.88rem; font-weight: 600; cursor: pointer; }
+    .li-spec-save-btn:hover { background: #333; }
+    .li-spec-save-btn:disabled { background: #999; cursor: default; }
+    .li-spec-cancel-btn { padding: 8px 14px; background: none; border: 1.5px solid #ccc; border-radius: 7px; font-size: 0.88rem; color: #555; cursor: pointer; }
+    .li-spec-cancel-btn:hover { border-color: #888; }
   </style>
 </head>
 <body>
@@ -368,6 +411,69 @@ function renderPage(title: string, body: string, inlineScript = ""): string {
         w.onafterprint = function() { w.close(); };
         w.print();
       }, 250);
+    }
+    function collapseLiDetails(liId) {
+      var section = document.getElementById('li-details-' + liId);
+      if (!section) return;
+      var fields = document.getElementById('li-details-fields-' + liId);
+      var summary = document.getElementById('li-details-summary-' + liId);
+      var editBtn = document.getElementById('li-details-edit-btn-' + liId);
+      var parts = [];
+      var styleEl = section.querySelector('[name=li_style]');
+      var fittingEl = section.querySelector('[name=li_fitting]');
+      var colorEl = section.querySelector('[name=li_color]');
+      var typeEl = section.querySelector('[name=li_type]');
+      var trimEl = section.querySelector('[name=li_trimIncluded]');
+      if (styleEl && styleEl.value) parts.push(styleEl.value);
+      if (fittingEl && fittingEl.value) parts.push(fittingEl.value);
+      if (colorEl && colorEl.value) parts.push(colorEl.value);
+      if (typeEl && typeEl.value) parts.push(typeEl.value);
+      if (trimEl && trimEl.checked) parts.push('Trim included');
+      if (summary) { summary.textContent = parts.length ? parts.join(' · ') : 'No details provided yet'; summary.style.display = 'block'; }
+      if (fields) fields.style.display = 'none';
+      if (editBtn) editBtn.style.display = '';
+    }
+    function expandLiDetails(liId) {
+      var fields = document.getElementById('li-details-fields-' + liId);
+      var summary = document.getElementById('li-details-summary-' + liId);
+      var editBtn = document.getElementById('li-details-edit-btn-' + liId);
+      if (summary) summary.dataset.prev = summary.textContent;
+      if (fields) fields.style.display = 'block';
+      if (summary) summary.style.display = 'none';
+      if (editBtn) editBtn.style.display = 'none';
+    }
+    function cancelLiDetails(liId) {
+      var fields = document.getElementById('li-details-fields-' + liId);
+      var summary = document.getElementById('li-details-summary-' + liId);
+      var editBtn = document.getElementById('li-details-edit-btn-' + liId);
+      if (summary && summary.dataset.prev !== undefined) summary.textContent = summary.dataset.prev;
+      if (fields) fields.style.display = 'none';
+      if (summary) summary.style.display = 'block';
+      if (editBtn) editBtn.style.display = '';
+    }
+    async function saveSpecs(liId, btn) {
+      var section = document.getElementById('li-details-' + liId);
+      if (!section) return;
+      var fd = new FormData();
+      section.querySelectorAll('[name]').forEach(function(el) {
+        if (el.type === 'checkbox') {
+          if (el.checked) fd.append(el.name, 'on');
+        } else {
+          fd.append(el.name, el.value);
+        }
+      });
+      var origText = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = 'Saving…';
+      try {
+        var res = await fetch(FORM_URL + '/item/' + liId, { method: 'POST', body: fd });
+        if (!res.ok) throw new Error();
+        collapseLiDetails(liId);
+      } catch(e) {
+        btn.disabled = false;
+        btn.textContent = origText;
+        alert('Could not save specifications. Please try again.');
+      }
     }
     function toggleShipping(radio) {
       var section = radio.closest('.material-section');
@@ -524,6 +630,16 @@ function renderPage(title: string, body: string, inlineScript = ""): string {
           }
         });
       }
+      var detailsSection = document.getElementById('li-details-' + liId);
+      if (detailsSection) {
+        detailsSection.querySelectorAll('[name]').forEach(function(el) {
+          if (el.type === 'checkbox') {
+            if (el.checked) fd.append(el.name, 'on');
+          } else {
+            fd.append(el.name, el.value);
+          }
+        });
+      }
       var errEl = btn.parentElement.querySelector('.item-error');
       var origText = btn.textContent;
       btn.disabled = true;
@@ -533,6 +649,7 @@ function renderPage(title: string, body: string, inlineScript = ""): string {
         if (!res.ok) throw new Error();
         btn.textContent = 'Saved ✓';
         btn.classList.add('saved');
+        collapseLiDetails(liId);
         var card = document.getElementById('card-' + liId);
         if (card) card.classList.add('card-done');
         if (errEl) errEl.textContent = '';
@@ -741,6 +858,105 @@ function renderExistingMatsSection(liId: string, mats: AirtableRecord[]): string
 </div>`;
 }
 
+function renderLineItemDetails(li: AirtableRecord): string {
+  const f = li.fields;
+  const style = str(f, "Style");
+  const fitting = str(f, "Fitting");
+  const color = esc(str(f, "Color"));
+  const type = esc(str(f, "Type"));
+  const topDiameter = f["Top Diameter (in)"] != null ? String(f["Top Diameter (in)"]) : "";
+  const slant = f["Slant (in)"] != null ? String(f["Slant (in)"]) : "";
+  const trimIncluded = f["Trim Included"] === true;
+  const notes = esc(str(f, "Notes"));
+
+  // Start collapsed if any values are already set (returning visit)
+  const hasValues = !!(style || fitting || str(f, "Color") || str(f, "Type") || topDiameter || slant || trimIncluded || str(f, "Notes"));
+
+  const summaryParts: string[] = [];
+  if (style) summaryParts.push(style);
+  if (fitting) summaryParts.push(fitting);
+  if (str(f, "Color")) summaryParts.push(str(f, "Color"));
+  if (str(f, "Type")) summaryParts.push(str(f, "Type"));
+  if (trimIncluded) summaryParts.push("Trim included");
+  const summaryText = summaryParts.length ? esc(summaryParts.join(" · ")) : "No details provided yet";
+
+  const styleOpts = [
+    "Softback - Box Pleat",
+    "Softback - Gathered Pleat",
+    "Softback - Other",
+    "Hardback - Rolled Edge",
+    "Hardback - Self Trim",
+  ].map((o) => `<option value="${esc(o)}"${style === o ? " selected" : ""}>${esc(o)}</option>`).join("");
+
+  const fittingOpts = [
+    "Spider - Brass",
+    "Spider - Chrome",
+    "Spider - Other",
+    "Bulb Clip",
+    "Candle Clip",
+  ].map((o) => `<option value="${esc(o)}"${fitting === o ? " selected" : ""}>${esc(o)}</option>`).join("");
+
+  return `<div class="li-details" id="li-details-${li.id}">
+  <input type="hidden" name="li_hasDetails" value="1">
+  <div class="li-details-header">
+    <span>Shade specifications</span>
+    <button type="button" class="li-details-edit-btn" id="li-details-edit-btn-${li.id}" onclick="expandLiDetails('${li.id}')"${hasValues ? "" : ' style="display:none"'}>Edit</button>
+  </div>
+  <div id="li-details-summary-${li.id}" class="li-details-summary"${hasValues ? "" : ' style="display:none"'}>${summaryText}</div>
+  <div id="li-details-fields-${li.id}"${hasValues ? ' style="display:none"' : ""}>
+    <div style="height:10px"></div>
+    <div class="field">
+      <label class="field-label">Style</label>
+      <select name="li_style" class="li-select">
+        <option value="">-- Select --</option>
+        ${styleOpts}
+      </select>
+    </div>
+    <div class="field">
+      <label class="field-label">Fitting</label>
+      <select name="li_fitting" class="li-select">
+        <option value="">-- Select --</option>
+        ${fittingOpts}
+      </select>
+    </div>
+    <div class="li-row">
+      <div class="field">
+        <label class="field-label">Color</label>
+        <input type="text" name="li_color" value="${color}" placeholder="e.g. Ivory">
+      </div>
+      <div class="field">
+        <label class="field-label">Type</label>
+        <input type="text" name="li_type" value="${type}" placeholder="e.g. Drum">
+      </div>
+    </div>
+    <div class="li-row">
+      <div class="field">
+        <label class="field-label">Top diameter (in)</label>
+        <input type="number" name="li_topDiameter" value="${esc(topDiameter)}" step="0.1" min="0" placeholder="0.0">
+      </div>
+      <div class="field">
+        <label class="field-label">Slant (in)</label>
+        <input type="number" name="li_slant" value="${esc(slant)}" step="0.1" min="0" placeholder="0.0">
+      </div>
+    </div>
+    <div class="field">
+      <label class="checkbox-opt">
+        <input type="checkbox" name="li_trimIncluded"${trimIncluded ? " checked" : ""}>
+        Trim included
+      </label>
+    </div>
+    <div class="field">
+      <label class="field-label">Notes</label>
+      <textarea name="li_notes" placeholder="Any additional notes for this item" style="min-height:56px">${notes}</textarea>
+    </div>
+    <div class="li-details-actions">
+      <button type="button" class="li-spec-save-btn" onclick="saveSpecs('${li.id}', this)">Save specifications</button>
+      <button type="button" class="li-spec-cancel-btn" onclick="cancelLiDetails('${li.id}')">Cancel</button>
+    </div>
+  </div>
+</div>`;
+}
+
 function renderLineItemCard(li: AirtableRecord, qrDataUri: string, existingMats: AirtableRecord[] = []): string {
   const f = li.fields;
   const id = li.id;
@@ -758,6 +974,8 @@ function renderLineItemCard(li: AirtableRecord, qrDataUri: string, existingMats:
     <span class="done-badge">Saved</span>
   </div>
 
+  ${renderLineItemDetails(li)}
+  <div class="materials-label">Materials</div>
   ${renderExistingMatsSection(id, existingMats)}
 
   ${hasExisting ? `<button type="button" class="add-mat-btn" id="show-new-mat-btn-${id}" onclick="showNewMatForm('${id}')">
