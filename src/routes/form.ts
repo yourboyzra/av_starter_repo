@@ -376,6 +376,10 @@ function renderPage(title: string, body: string, inlineScript = ""): string {
     .li-spec-save-btn:disabled { background: #999; cursor: default; }
     .li-spec-cancel-btn { padding: 8px 14px; background: none; border: 1.5px solid #ccc; border-radius: 7px; font-size: 0.88rem; color: #555; cursor: pointer; }
     .li-spec-cancel-btn:hover { border-color: #888; }
+    .show-qr-btn { display: inline-flex; align-items: center; gap: 5px; font-size: 0.82rem; font-weight: 600; color: #555; background: none; border: 1.5px solid #ccc; border-radius: 6px; padding: 4px 10px; cursor: pointer; white-space: nowrap; }
+    .show-qr-btn:hover { border-color: #888; color: #111; }
+    .show-qr-btn svg { width: 13px; height: 13px; flex-shrink: 0; }
+    .existing-mat-qr { margin-top: 12px; }
   </style>
 </head>
 <body>
@@ -387,8 +391,11 @@ function renderPage(title: string, body: string, inlineScript = ""): string {
     function printQR(btn) {
       var block = btn.closest('.qr-block');
       var img = block && block.querySelector('img');
-      var name = (block && block.dataset.qrName) || '';
+      var itemName = (block && block.dataset.qrName) || '';
       var src = img ? img.src : '';
+      var section = block && block.closest('.material-section');
+      var matNameInput = section && section.querySelector('[name$="_materialName"]');
+      var matName = (block && block.dataset.matName) || (matNameInput ? matNameInput.value.trim() : '');
       var pw = 640, ph = 720;
       var pl = Math.round((screen.width - pw) / 2);
       var pt = Math.round((screen.height - ph) / 2);
@@ -397,12 +404,15 @@ function renderPage(title: string, body: string, inlineScript = ""): string {
       // No inline <script> in the popup — parent calls w.print() after a short
       // delay so the page has time to render the image before the dialog opens.
       w.document.write(
-        '<!doctype html><html><head><title>QR - ' + name + '</title>' +
+        '<!doctype html><html><head><title>QR - ' + itemName + '</title>' +
         '<style>body{margin:0;display:flex;flex-direction:column;align-items:center;' +
         'font-family:sans-serif;text-align:center;padding:48px 24px;}' +
         'img{width:260px;height:260px;display:block;margin:0 auto 18px;}' +
-        'h2{font-size:15px;font-weight:700;margin-bottom:6px;}p{font-size:13px;color:#555;}</style>' +
-        '</head><body><img src="' + src + '"><h2>' + name + '</h2>' +
+        '.mat-name{font-size:17px;font-weight:700;margin:0 0 20px;}' +
+        'h2{font-size:13px;font-weight:600;color:#555;margin-bottom:6px;}p{font-size:13px;color:#777;}</style>' +
+        '</head><body>' +
+        (matName ? '<p class="mat-name">' + matName + '</p>' : '') +
+        '<img src="' + src + '"><h2>' + itemName + '</h2>' +
         '<p>Include this in the box with your material.</p></body></html>'
       );
       w.document.close();
@@ -411,6 +421,14 @@ function renderPage(title: string, body: string, inlineScript = ""): string {
         w.onafterprint = function() { w.close(); };
         w.print();
       }, 250);
+    }
+    function toggleMatQR(matId) {
+      var block = document.getElementById('mat-qr-' + matId);
+      if (!block) return;
+      var btn = document.getElementById('mat-qr-btn-' + matId);
+      var visible = block.style.display !== 'none';
+      block.style.display = visible ? 'none' : 'block';
+      if (btn) btn.textContent = visible ? 'Show QR code' : 'Hide QR code';
     }
     function collapseLiDetails(liId) {
       var section = document.getElementById('li-details-' + liId);
@@ -774,8 +792,9 @@ function materialSectionHtml(
 </div>`;
 }
 
-function renderExistingMatsSection(liId: string, mats: AirtableRecord[]): string {
+function renderExistingMatsSection(liId: string, mats: AirtableRecord[], qrDataUri: string, liName: string): string {
   if (!mats.length) return "";
+  const dlName = `qr-${liName.replace(/[^a-z0-9]/gi, "-").toLowerCase()}.png`;
   const rows = mats.map((mat) => {
     const name = esc(str(mat.fields, "Material Name")) || "Unnamed material";
     const status = str(mat.fields, "Material Status");
@@ -831,6 +850,25 @@ function renderExistingMatsSection(liId: string, mats: AirtableRecord[]): string
   </div>
 </div>`;
 
+    const qrBlock = `<div class="existing-mat-qr" id="mat-qr-${mat.id}" style="display:none">
+  <div class="qr-block" data-qr-name="${esc(liName)}" data-mat-name="${name}">
+    <img src="${qrDataUri}" alt="QR code" width="80" height="80">
+    <div class="qr-block-text">
+      <p>Include this QR code in the box with <strong>${name}</strong> so our team can identify it on arrival.</p>
+      <div class="qr-actions">
+        <a href="${qrDataUri}" download="${dlName}" class="download-btn">
+          <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Download
+        </a>
+        <button type="button" class="print-qr-btn" onclick="printQR(this)">
+          <svg viewBox="0 0 24 24"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+          Print
+        </button>
+      </div>
+    </div>
+  </div>
+</div>`;
+
     return `<div class="existing-mat-row" id="existing-mat-row-${mat.id}">
   <input type="hidden" name="knownMat_${mat.id}" value="${mat.id}">
   <div class="existing-mat-main">
@@ -838,13 +876,18 @@ function renderExistingMatsSection(liId: string, mats: AirtableRecord[]): string
     <div class="existing-mat-controls">
       ${locked
         ? `<span class="status-chip ${chipClass}">${esc(status)}</span>`
-        : `<button type="button" class="edit-mat-btn" onclick="toggleEditForm('${mat.id}')">Edit</button>
+        : `${fromMe ? `<button type="button" id="mat-qr-btn-${mat.id}" class="show-qr-btn" onclick="toggleMatQR('${mat.id}')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+        Show QR code
+      </button>` : ""}
+      <button type="button" class="edit-mat-btn" onclick="toggleEditForm('${mat.id}')">Edit</button>
       <label class="shipped-label">
         <input type="checkbox" name="update_${mat.id}_shipped"${isShipped ? " checked" : ""} onchange="toggleShippedTracking(this,'${mat.id}')">
         I've shipped this
       </label>`}
     </div>
   </div>
+  ${locked || !fromMe ? "" : qrBlock}
   ${locked ? "" : `<input type="hidden" name="update_${mat.id}_shipfrom" value="${esc(shipFromAT)}">
   <div id="shipped-tracking-${mat.id}" style="margin-top:8px;${isShipped ? "" : "display:none"}">
     <input type="text" name="update_${mat.id}_tracking" value="${existingTracking}" placeholder="${fromVendor ? "Tracking number (required to mark shipped)" : "Tracking number (optional)"}" style="width:100%;border:1px solid #ddd;border-radius:7px;padding:8px 11px;font-size:0.875rem;font-family:inherit;background:#fafafa;color:#111">
@@ -976,7 +1019,7 @@ function renderLineItemCard(li: AirtableRecord, qrDataUri: string, existingMats:
 
   ${renderLineItemDetails(li)}
   <div class="materials-label">Materials</div>
-  ${renderExistingMatsSection(id, existingMats)}
+  ${renderExistingMatsSection(id, existingMats, qrDataUri, title)}
 
   ${hasExisting ? `<button type="button" class="add-mat-btn" id="show-new-mat-btn-${id}" onclick="showNewMatForm('${id}')">
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
