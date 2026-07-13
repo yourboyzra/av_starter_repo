@@ -1,6 +1,7 @@
 import { airtable } from "../lib/airtable.js";
 import { quickbooksSpecs } from "../mappers/quickbooks.js";
-import { createOrUpdatePurchaseOrder } from "../connectors/quickbooks.js";
+import { createOrUpdatePurchaseOrder, fetchPoPdf } from "../connectors/quickbooks.js";
+import { r2Configured, uploadToR2 } from "../lib/r2.js";
 
 /**
  * Create or update a QuickBooks PurchaseOrder from a Shipments record, writing
@@ -22,6 +23,7 @@ export async function createPO(shipmentRecordId: string): Promise<{ id: string; 
 
   const currentId = record.fields[spec.idField];
   const externalId = typeof currentId === "string" && currentId ? currentId : null;
+  const isNew = !externalId;
 
   try {
     const { id, docNumber } = await createOrUpdatePurchaseOrder(externalId, payload);
@@ -38,6 +40,35 @@ export async function createPO(shipmentRecordId: string): Promise<{ id: string; 
         },
       },
     ]);
+
+    // Attach the PO PDF to the linked Order record — non-fatal if it fails.
+    // On create: append alongside any existing POs from other shipments.
+    // On update: replace the previous version of this PO (matched by filename)
+    //            while preserving PDFs from other shipments.
+    if (r2Configured()) {
+      try {
+        const orderIds = Array.isArray(record.fields["Order"]) ? (record.fields["Order"] as string[]) : [];
+        const orderId = orderIds[0];
+        if (orderId) {
+          const pdfRes = await fetchPoPdf(id);
+          const buf = await pdfRes.arrayBuffer();
+          const key = `po-pdfs/${shipmentRecordId}/${Date.now()}.pdf`;
+          const url = await uploadToR2(key, buf, "application/pdf");
+          const filename = `PO-${docNumber || id}.pdf`;
+          const orderRecord = await airtable.find("Orders", orderId);
+          const existing = Array.isArray(orderRecord.fields["PO(s)"])
+            ? (orderRecord.fields["PO(s)"] as Array<{ id: string; filename?: string }>)
+            : [];
+          // Keep all other POs; on update, drop the old version of this one
+          const kept = isNew
+            ? existing.map((a) => ({ id: a.id }))
+            : existing.filter((a) => a.filename !== filename).map((a) => ({ id: a.id }));
+          await airtable.update("Orders", [{ id: orderId, fields: { "PO(s)": [...kept, { url, filename }] } }]);
+        }
+      } catch (pdfErr) {
+        console.error("[createPO] PDF attachment failed (non-fatal):", pdfErr);
+      }
+    }
 
     return { id, docNumber };
   } catch (err) {
