@@ -105,11 +105,12 @@ export async function getShipmentRates(shipmentSpec: Record<string, unknown>): P
  * This is the one place in the codebase that spends real postage money —
  * it is intentionally NOT wired into the generic push/pullChanges flow.
  */
-export async function createLabelFromRate(rateId: string): Promise<{ trackingNumber: string; labelId: string; shipmentId: string }> {
+export async function createLabelFromRate(rateId: string): Promise<{ trackingNumber: string; labelId: string; shipmentId: string; labelPdfUrl?: string }> {
   const result = await shipstationRequest<{
     label_id: string;
     shipment_id: string;
     tracking_number: string;
+    label_download?: { pdf?: string; href?: string };
   }>("POST", `/v2/labels/rates/${rateId}`, {
     label_format: "pdf",
     label_layout: "4x6",
@@ -119,6 +120,7 @@ export async function createLabelFromRate(rateId: string): Promise<{ trackingNum
     trackingNumber: result.tracking_number,
     labelId: result.label_id,
     shipmentId: result.shipment_id,
+    labelPdfUrl: result.label_download?.pdf ?? result.label_download?.href,
   };
 }
 
