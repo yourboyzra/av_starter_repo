@@ -93,12 +93,11 @@ export async function getShipmentRates(shipmentSpec: Record<string, unknown>): P
   const carrierIds = (carriersRes.carriers ?? []).map((c) => c.carrier_id);
   if (carrierIds.length === 0) throw new Error("No carriers configured in ShipStation account");
 
-  const body = { rate_options: { carrier_ids: carrierIds }, shipment: shipmentSpec };
-  console.log("[rates] request:", JSON.stringify(body));
-  const result = await shipstationRequest<Record<string, unknown>>("POST", "/v2/rates", body);
-  console.log("[rates] response:", JSON.stringify(result));
-  const rates = (result.rates as ShipStationRate[] | undefined) ?? [];
-  return rates;
+  const result = await shipstationRequest<{ rate_response: { rates: ShipStationRate[] } }>("POST", "/v2/rates", {
+    rate_options: { carrier_ids: carrierIds },
+    shipment: shipmentSpec,
+  });
+  return result.rate_response?.rates ?? [];
 }
 
 /**
