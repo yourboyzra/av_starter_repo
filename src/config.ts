@@ -31,6 +31,7 @@ const Env = z.object({
   SHOPIFY_APP_CLIENT_SECRET: z.string().optional(),
   SHOPIFY_API_VERSION: z.string().default("2026-04"),
   SHOPIFY_WEBHOOK_SECRET: z.string().optional(),
+  SHOPIFY_ORDERS_CREATED_AFTER: z.string().optional(), // ISO date e.g. 2026-06-01 — filters out orders created before this date
 
   // ShipStation (V2 API)
   SHIPSTATION_API_KEY: z.string().optional(),

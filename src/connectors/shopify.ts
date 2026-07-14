@@ -1,5 +1,5 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
-import { requireEnv } from "../config.js";
+import { env, requireEnv } from "../config.js";
 import { verifyHmacBase64PlainSecret } from "../lib/verify.js";
 import { getAccessToken } from "../lib/oauth.js";
 import {
@@ -191,8 +191,9 @@ export interface ShopifyOrder {
 
 async function listOrdersSince(since: string): Promise<ShopifyOrder[]> {
   const out: ShopifyOrder[] = [];
+  const createdAfter = env.SHOPIFY_ORDERS_CREATED_AFTER;
   let url: string | undefined =
-    `${baseUrl()}/orders.json?status=any&limit=250&updated_at_min=${encodeURIComponent(since)}`;
+    `${baseUrl()}/orders.json?status=any&limit=250&updated_at_min=${encodeURIComponent(since)}${createdAfter ? `&created_at_min=${encodeURIComponent(createdAfter)}` : ""}`;
   while (url) {
     const result: { body: { orders: ShopifyOrder[] }; nextUrl?: string } = await shopifyRequest(url);
     out.push(...result.body.orders);
