@@ -60,32 +60,6 @@ export interface ShipStationShipment {
   [k: string]: unknown;
 }
 
-async function listShipmentsSince(since: string): Promise<ShipStationShipment[]> {
-  const out: ShipStationShipment[] = [];
-  let page = 1;
-  for (;;) {
-    const qs = new URLSearchParams({
-      modified_at_start: since,
-      modified_at_end: new Date().toISOString(),
-      page: String(page),
-      page_size: "100",
-      sort_by: "modified_at",
-      sort_dir: "asc",
-    });
-    const result: { shipments: ShipStationShipment[]; page: number; pages: number } = await shipstationRequest(
-      "GET",
-      `/v2/shipments?${qs}`
-    );
-    // Only track shipments we created from Airtable — external_shipment_id is
-    // set to the Airtable record ID on push. Shipments created directly in
-    // ShipStation have it null/empty and should not flow back in.
-    out.push(...result.shipments.filter((s) => s.external_shipment_id));
-    if (result.page >= result.pages) break;
-    page++;
-  }
-  return out;
-}
-
 function normalizeShipment(s: ShipStationShipment): ExternalRecord {
   return {
     externalId: s.shipment_id,
@@ -146,10 +120,8 @@ export async function createLabelFromRate(rateId: string): Promise<{ trackingNum
 export const shipstationConnector: Connector = {
   name: "shipstation",
 
-  async pullChanges(entity, since) {
-    if (entity !== "shipment") throw new NotSupportedError(`entity ${entity}`);
-    const shipments = await listShipmentsSince(since);
-    return shipments.map(normalizeShipment);
+  async pullChanges(entity) {
+    throw new NotSupportedError(`pullChanges for ${entity} — ShipStation shipments are Airtable-initiated; tracking comes back via createLabelFromRate, not reconciliation`);
   },
 
   /** Creates (externalId null) or updates (externalId set) a shipment — never buys a label. */
@@ -187,6 +159,11 @@ export const shipstationConnector: Connector = {
 
     const shipment = await shipstationRequest<ShipStationShipment>("GET", `/v2/shipments/${shipmentId}`);
     const eventId = createHash("sha256").update(rawBody).digest("hex");
+
+    // Ignore shipments not created from Airtable — external_shipment_id is set
+    // to the Airtable record ID on push; externally-created shipments have it
+    // null/empty and must not create new Airtable records.
+    if (!shipment.external_shipment_id) return { eventId, records: [] };
 
     return { eventId, records: [normalizeShipment(shipment)] };
   },
