@@ -43,6 +43,18 @@ function firstLookup(value: unknown): string {
   return typeof value === "string" ? value : "";
 }
 
+const COUNTRY_NAME_TO_CODE: Record<string, string> = {
+  "united states": "US", "united states of america": "US", "canada": "CA",
+  "united kingdom": "GB", "australia": "AU", "germany": "DE", "france": "FR",
+  "mexico": "MX", "japan": "JP", "china": "CN", "italy": "IT", "spain": "ES",
+};
+
+/** Normalize full country names ("United States") to ISO 2-letter codes ("US"). */
+function toCountryCode(value: string): string {
+  if (value.length === 2) return value.toUpperCase();
+  return COUNTRY_NAME_TO_CODE[value.toLowerCase()] ?? value;
+}
+
 function vendorShipFrom(fields: Fields): Record<string, unknown> | null {
   const addressLine1 = firstLookup(fields["Address Line 1 (from Vendor)"]);
   if (!addressLine1) return null; // no vendor linked, or vendor has no address on file
@@ -55,7 +67,7 @@ function vendorShipFrom(fields: Fields): Record<string, unknown> | null {
     city_locality: firstLookup(fields["City (from Vendor)"]),
     state_province: firstLookup(fields["State (from Vendor)"]),
     postal_code: firstLookup(fields["Zip (from Vendor)"]),
-    country_code: firstLookup(fields["Country (from Vendor)"]),
+    country_code: toCountryCode(firstLookup(fields["Country (from Vendor)"])),
     address_residential_indicator: "unknown",
   };
 }
@@ -69,7 +81,7 @@ function shipTo(fields: Fields): Record<string, unknown> {
     city_locality: firstLookup(fields["Ship To City (from Order)"]),
     state_province: firstLookup(fields["Ship To State (from Order)"]),
     postal_code: firstLookup(fields["Ship To Zip (from Order)"]),
-    country_code: firstLookup(fields["Ship To Country (from Order)"]),
+    country_code: toCountryCode(firstLookup(fields["Ship To Country (from Order)"])),
     address_residential_indicator: "unknown",
   };
 }

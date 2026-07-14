@@ -89,7 +89,12 @@ export interface ShipStationRate {
 
 /** Fetch available rates for a shipment spec built by mapOut. */
 export async function getShipmentRates(shipmentSpec: Record<string, unknown>): Promise<ShipStationRate[]> {
+  const carriersRes = await shipstationRequest<{ carriers: { carrier_id: string }[] }>("GET", "/v2/carriers");
+  const carrierIds = (carriersRes.carriers ?? []).map((c) => c.carrier_id);
+  if (carrierIds.length === 0) throw new Error("No carriers configured in ShipStation account");
+
   const result = await shipstationRequest<{ rates: ShipStationRate[] }>("POST", "/v2/rates", {
+    rate_options: { carrier_ids: carrierIds },
     shipment: shipmentSpec,
   });
   return result.rates ?? [];
