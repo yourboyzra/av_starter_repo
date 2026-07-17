@@ -111,7 +111,6 @@ export async function createVendorShipments(orderId: string): Promise<CreateVend
             Vendor: [vendorId],
             "Line Items": group.map((li) => li.id),
             Leg: leg,
-            "Notify Customer": false,
             "Sync Status": "Pending",
           },
         },
@@ -171,7 +170,6 @@ export async function createLuxToCustomerShipment(orderId: string): Promise<Crea
         Vendor: [luxVendor.id],
         "Line Items": eligible.map((li) => li.id),
         Leg: "Lux to Customer",
-        "Notify Customer": false, // opt-in only — staff must proactively check this before Shopify emails the customer
         "Sync Status": "Pending",
       },
     },

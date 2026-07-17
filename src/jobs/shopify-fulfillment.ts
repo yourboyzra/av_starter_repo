@@ -13,13 +13,10 @@ import { listFulfillmentOrders, createFulfillment } from "../connectors/shopify.
  * pushed to Shopify — Vendor to Lux is an internal handoff the customer (and
  * therefore Shopify) should never see as a "fulfillment."
  *
- * notify_customer is read directly from each Shipments record's "Notify
- * Customer" checkbox — defaults to FALSE (opt-in only, see
- * src/jobs/shipments.ts) so this never silently emails the customer unless
- * staff proactively check it for that shipment. That's deliberate: it keeps
- * this push from automatically colliding with Automation 5 (native,
- * separately specified), which may also email the customer on Fulfilled —
- * staff decide per-shipment whether Shopify's email should go out too.
+ * notify_customer is read from the Order record's "Notify Customer" checkbox
+ * so Lux decides once at the order level whether Shopify sends its built-in
+ * shipping email. Defaults to FALSE — if unchecked, Shopify stays silent and
+ * the native Automation 5 email is the customer's only notification.
  */
 
 const ORDERS_TABLE = "Orders";
@@ -104,7 +101,7 @@ export async function pushShopifyFulfillments(orderId: string): Promise<PushShop
       })),
       trackingCompany: typeof shipment.fields["Carrier"] === "string" ? shipment.fields["Carrier"] : undefined,
       trackingNumber: typeof shipment.fields["Tracking Number"] === "string" ? shipment.fields["Tracking Number"] : undefined,
-      notifyCustomer: shipment.fields["Notify Customer"] === true,
+      notifyCustomer: order.fields["Notify Customer"] === true,
     });
 
     await airtable.update(SHIPMENTS_TABLE, [
