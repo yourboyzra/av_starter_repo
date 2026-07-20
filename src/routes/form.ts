@@ -321,7 +321,10 @@ function renderPage(title: string, body: string, inlineScript = ""): string {
     .upload-btn:hover { border-color: #999; }
     .upload-btn svg { width: 26px; height: 26px; stroke: #888; fill: none; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
     input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
-    .file-name { font-size: 0.78rem; color: #666; margin-top: 4px; min-height: 14px; }
+    .file-pill { display: none; align-items: center; gap: 7px; background: #e8f0fe; border: 1.5px solid #c2d3fb; border-radius: 100px; padding: 6px 8px 6px 12px; margin-top: 8px; max-width: 100%; }
+    .file-pill-name { font-size: 0.82rem; color: #1a3a8a; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 1; }
+    .file-pill-x { flex-shrink: 0; background: none; border: none; cursor: pointer; color: #6b8ce8; padding: 0; width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1rem; line-height: 1; }
+    .file-pill-x:hover { background: #c2d3fb; color: #1a3a8a; }
     .add-mat-btn { display: flex; align-items: center; gap: 6px; background: none; border: 1.5px dashed #bbb; border-radius: 8px; padding: 10px 14px; font-size: 0.88rem; color: #555; cursor: pointer; width: 100%; margin-top: 16px; }
     .add-mat-btn:hover { border-color: #888; color: #111; }
     .card-footer { margin-top: 20px; padding-top: 16px; border-top: 1px solid #eee; display: flex; align-items: center; gap: 12px; }
@@ -508,12 +511,20 @@ function renderPage(title: string, body: string, inlineScript = ""): string {
     }
     function setupFileInput(input) {
       input.addEventListener('change', function() {
-        var wrap = input.closest('.upload-wrap');
-        var label = wrap && wrap.nextElementSibling;
-        if (label && label.classList.contains('file-name')) {
-          label.textContent = input.files && input.files[0] ? input.files[0].name : '';
-        }
+        var field = input.closest('.field');
+        var pill = field && field.querySelector('.file-pill');
+        var pillName = pill && pill.querySelector('.file-pill-name');
+        var hasFile = input.files && input.files[0];
+        if (pill) pill.style.display = hasFile ? 'flex' : 'none';
+        if (pillName) pillName.textContent = hasFile ? input.files[0].name : '';
       });
+    }
+    function clearFileInput(btn) {
+      var field = btn.closest('.field');
+      var input = field && field.querySelector('input[type=file]');
+      var pill = btn.closest('.file-pill');
+      if (input) input.value = '';
+      if (pill) pill.style.display = 'none';
     }
     function addMaterial(liId) {
       var tpl = document.getElementById('mat-tpl-' + liId);
@@ -787,7 +798,11 @@ function materialSectionHtml(
       </label>
       <input type="file" id="ph-${uid}" name="${prefix}_photo" accept="image/*" capture="environment">
     </div>
-    <div class="file-name"></div>
+    <div class="file-pill">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#1a3a8a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+      <span class="file-pill-name"></span>
+      <button type="button" class="file-pill-x" onclick="clearFileInput(this)" aria-label="Remove file">&#x2715;</button>
+    </div>
   </div>
 </div>`;
 }
