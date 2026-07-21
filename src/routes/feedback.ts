@@ -16,15 +16,7 @@ feedback.get("/:orderId", async (c) => {
   }
 
   if (order.fields["Feedback Submitted"] === true) {
-    const existing = await airtable.list("Feedback", {
-      filterByFormula: `FIND('${orderId}', ARRAYJOIN({Order}))`,
-      maxRecords: "1",
-    });
-    if (existing.length > 0) {
-      return c.html(renderAlreadySubmitted());
-    }
-    // Record was deleted manually — reset the flag so the form works again
-    await airtable.update("Orders", [{ id: orderId, fields: { "Feedback Submitted": false } }]);
+    return c.html(renderAlreadySubmitted());
   }
 
   const lineItemIds = order.fields["Line Items"] as string[] | undefined;
