@@ -578,6 +578,18 @@ function renderPage(title: string, body: string, inlineScript = ""): string {
     function toggleEditShipping(matId, radio) {
       var fv = document.getElementById('efv-' + matId);
       if (fv) fv.style.display = radio.value === 'Shipping From Vendor' ? 'block' : 'none';
+      // Preview QR button/block state while the edit form is open
+      var isFromMe = radio.value === 'Shipping From Me';
+      var qrBtn = document.getElementById('mat-qr-btn-' + matId);
+      var qrBlock = document.getElementById('mat-qr-' + matId);
+      if (qrBtn) {
+        qrBtn.style.display = isFromMe ? '' : 'none';
+        // Collapse the QR block if switching away from Ship From Me
+        if (!isFromMe && qrBlock && qrBlock.style.display !== 'none') {
+          qrBlock.style.display = 'none';
+          qrBtn.textContent = 'Show QR code';
+        }
+      }
     }
     async function saveEdit(matId, btn) {
       var editForm = document.getElementById('edit-form-' + matId);
@@ -598,6 +610,19 @@ function renderPage(title: string, body: string, inlineScript = ""): string {
         var nameEl = document.querySelector('#existing-mat-row-' + matId + ' .existing-mat-name');
         var newName = fd.get('materialName');
         if (nameEl && newName) nameEl.textContent = newName;
+        // Update row controls to reflect the saved shipping source
+        var newShipFrom = fd.get('shippingSource');
+        var isFromMe = newShipFrom === 'Shipping From Me';
+        var isFromVendor = newShipFrom === 'Shipping From Vendor';
+        var atShipFrom = isFromMe ? 'Ship From Customer' : isFromVendor ? 'Ship From Vendor' : '';
+        var sfInput = document.querySelector('#existing-mat-row-' + matId + ' input[name="update_' + matId + '_shipfrom"]');
+        if (sfInput && atShipFrom) sfInput.value = atShipFrom;
+        var trackWrap = document.getElementById('shipped-tracking-' + matId);
+        var trackInput = trackWrap && trackWrap.querySelector('input[type=text]');
+        if (trackInput) {
+          trackInput.placeholder = isFromVendor ? 'Tracking number (required to mark shipped)' : 'Tracking number (optional)';
+        }
+        // QR button is already updated live by toggleEditShipping, no-op here
         toggleEditForm(matId);
         var editBtn = document.querySelector('#existing-mat-row-' + matId + ' .edit-mat-btn');
         if (editBtn) {
@@ -630,6 +655,12 @@ function renderPage(title: string, body: string, inlineScript = ""): string {
           if (showBtn) showBtn.remove();
           var newMats = document.getElementById('new-mats-' + liId);
           if (newMats) newMats.style.display = 'block';
+        } else if (existing) {
+          var remaining = existing.querySelectorAll('.existing-mat-row');
+          if (remaining.length === 1) {
+            var lastDelete = remaining[0].querySelector('.delete-mat-btn');
+            if (lastDelete) lastDelete.style.display = 'none';
+          }
         }
       } catch(e) {
         btn.disabled = false; btn.textContent = 'Delete';
@@ -810,6 +841,7 @@ function materialSectionHtml(
 function renderExistingMatsSection(liId: string, mats: AirtableRecord[], qrDataUri: string, liName: string): string {
   if (!mats.length) return "";
   const dlName = `qr-${liName.replace(/[^a-z0-9]/gi, "-").toLowerCase()}.png`;
+  const isOnly = mats.length === 1;
   const rows = mats.map((mat) => {
     const name = esc(str(mat.fields, "Material Name")) || "Unnamed material";
     const status = str(mat.fields, "Material Status");
@@ -861,7 +893,7 @@ function renderExistingMatsSection(liId: string, mats: AirtableRecord[], qrDataU
   <div class="edit-form-footer">
     <button type="button" class="edit-save-btn" onclick="saveEdit('${mat.id}', this)">Update</button>
     <button type="button" class="edit-cancel-btn" onclick="toggleEditForm('${mat.id}')">Cancel</button>
-    <button type="button" class="delete-mat-btn" onclick="deleteMaterial('${mat.id}', '${liId}', this)">Delete material</button>
+    <button type="button" class="delete-mat-btn" onclick="deleteMaterial('${mat.id}', '${liId}', this)"${isOnly ? ' style="display:none"' : ""}>Delete material</button>
   </div>
 </div>`;
 

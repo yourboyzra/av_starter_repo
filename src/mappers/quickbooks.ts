@@ -135,19 +135,38 @@ export const quickbooksSpecs: ProviderSpecs = {
       const shipmentName = String(fields["Shipment Name"] ?? airtableRecordId);
       const poNumber = String(fields["PO Number"] ?? "");
 
+      const shipLine1 = firstLookup(fields["Ship To Address Line 1 (from Order)"]);
+      const shipLine2 = firstLookup(fields["Ship To Address Line 2 (from Order)"]);
+      const shipCity = firstLookup(fields["Ship To City (from Order)"]);
+      const shipState = firstLookup(fields["Ship To State (from Order)"]);
+      const shipZip = firstLookup(fields["Ship To Zip (from Order)"]);
+      const shipCountry = firstLookup(fields["Ship To Country (from Order)"]);
+
       return {
         ...(poNumber ? { DocNumber: poNumber } : {}),
         TxnDate: new Date().toISOString().slice(0, 10),
         VendorRef: { value: vendorId },
-        APAccountRef: { value: apAccountId }, // AP account goes on the PO header, not the line
+        APAccountRef: { value: apAccountId },
         Memo: [orderNumber, shipmentName].filter(Boolean).join(" — "),
+        ...(shipLine1 ? {
+          ShipAddr: {
+            Line1: shipLine1,
+            ...(shipLine2 ? { Line2: shipLine2 } : {}),
+            City: shipCity,
+            CountrySubDivisionCode: shipState,
+            PostalCode: shipZip,
+            Country: shipCountry,
+          },
+        } : {}),
+        // Line array is overridden in createPO with per-line-item detail.
+        // This fallback covers the generic pushOutbound path.
         Line: [
           {
             DetailType: "AccountBasedExpenseLineDetail",
             Amount: poAmount,
             Description: shipmentName,
             AccountBasedExpenseLineDetail: {
-              AccountRef: { value: "80" }, // Cost of Goods Sold — the expense account for vendor purchases
+              AccountRef: { value: "80" },
             },
           },
         ],
