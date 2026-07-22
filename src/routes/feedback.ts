@@ -114,9 +114,13 @@ function renderPage(title: string, body: string, script = ""): string {
     h1 { font-size: 1.4rem; font-weight: 700; margin-bottom: 4px; }
     .subtitle { color: #666; font-size: 0.875rem; margin-bottom: 6px; }
     .intro { color: #555; font-size: 0.875rem; margin-bottom: 28px; }
-    .order-card { background: #fff; border-radius: 12px; padding: 18px 20px; margin-bottom: 24px; box-shadow: 0 1px 4px rgba(0,0,0,0.07); }
-    .order-card-label { font-size: 0.72rem; font-weight: 700; color: #999; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 10px; }
-    .order-items { list-style: none; }
+    .order-card { background: #fff; border-radius: 12px; margin-bottom: 24px; box-shadow: 0 1px 4px rgba(0,0,0,0.07); overflow: hidden; }
+    .order-card-toggle { width: 100%; display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; background: none; border: none; cursor: pointer; text-align: left; }
+    .order-card-toggle:hover { background: #fafafa; }
+    .order-card-label { font-size: 0.72rem; font-weight: 700; color: #999; text-transform: uppercase; letter-spacing: 0.06em; }
+    .order-card-chevron { width: 16px; height: 16px; stroke: #aaa; fill: none; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; transition: transform 0.2s; flex-shrink: 0; }
+    .order-card.open .order-card-chevron { transform: rotate(180deg); }
+    .order-items { list-style: none; padding: 0 20px 16px; display: none; }
     .order-items li { font-size: 0.9rem; color: #333; padding: 5px 0; border-bottom: 1px solid #f0f0f0; display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
     .order-items li:last-child { border-bottom: none; }
     .item-qty { font-size: 0.8rem; color: #888; flex-shrink: 0; }
@@ -217,6 +221,12 @@ function renderForm(order: AirtableRecord, lineItems: AirtableRecord[]): string 
         });
       });
     });
+    function toggleOrderCard() {
+      var card = document.getElementById('order-card');
+      var items = document.getElementById('order-items');
+      var open = card.classList.toggle('open');
+      items.style.display = open ? 'block' : 'none';
+    }
     document.getElementById('feedback-form').addEventListener('submit', function(e) {
       var btn = document.getElementById('submit-btn');
       btn.disabled = true;
@@ -226,13 +236,17 @@ function renderForm(order: AirtableRecord, lineItems: AirtableRecord[]): string 
 
   return renderPage(
     `Share Your Feedback — Order ${orderNumber}`,
-    `<h1>How did we do?</h1>
+    `<h1>Feedback Form — How did we do?</h1>
 <p class="subtitle">Order ${orderNumber}${customerName ? ` &middot; ${customerName}` : ""}</p>
-<p class="intro">We'd love to hear what you think about your lampshades. It only takes a minute.</p>
+<p class="intro">Thank you for choosing Lux Lampshade! We hope you're thrilled with your custom lampshade. Your feedback helps us continue improving our products and customer experience while helping future customers shop with confidence.</p>
+<p class="intro">This short survey will only take a minute to complete. We truly appreciate you taking the time to share your experience with us.</p>
 
-<div class="order-card">
-  <div class="order-card-label">Your order</div>
-  <ul class="order-items">${itemsHtml}</ul>
+<div class="order-card" id="order-card">
+  <button type="button" class="order-card-toggle" onclick="toggleOrderCard()">
+    <span class="order-card-label">Your order</span>
+    <svg class="order-card-chevron" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+  </button>
+  <ul class="order-items" id="order-items">${itemsHtml}</ul>
 </div>
 
 <form id="feedback-form" method="POST" action="/feedback/${orderId}">
