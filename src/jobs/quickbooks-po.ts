@@ -79,7 +79,6 @@ export async function createPO(shipmentRecordId: string): Promise<{ id: string; 
   const payload = basePayload;
   const currentId = record.fields[spec.idField];
   const externalId = typeof currentId === "string" && currentId ? currentId : null;
-  const isNew = !externalId;
 
   try {
     const { id, docNumber } = await createOrUpdatePurchaseOrder(externalId, payload);
@@ -97,24 +96,16 @@ export async function createPO(shipmentRecordId: string): Promise<{ id: string; 
       },
     ]);
 
-    // Attach the PO PDF to the linked Order record — non-fatal if it fails.
-    // On create: append alongside any existing POs from other shipments.
-    // On update: replace the previous version of this PO (matched by filename)
-    //            while preserving PDFs from other shipments.
-    if (r2Configured() && orderId && orderRecord) {
+    // Attach the PO PDF to the Shipment record — non-fatal if it fails.
+    // Each shipment maps to exactly one PO so we just replace the field.
+    if (r2Configured()) {
       try {
         const pdfRes = await fetchPoPdf(id);
         const buf = await pdfRes.arrayBuffer();
         const key = `po-pdfs/${shipmentRecordId}/${Date.now()}.pdf`;
         const url = await uploadToR2(key, buf, "application/pdf");
         const filename = `PO-${docNumber || id}.pdf`;
-        const existing = Array.isArray(orderRecord.fields["PO(s)"])
-          ? (orderRecord.fields["PO(s)"] as Array<{ id: string; filename?: string }>)
-          : [];
-        const kept = isNew
-          ? existing.map((a) => ({ id: a.id }))
-          : existing.filter((a) => a.filename !== filename).map((a) => ({ id: a.id }));
-        await airtable.update("Orders", [{ id: orderId, fields: { "PO(s)": [...kept, { url, filename }] } }]);
+        await airtable.update("Shipments", [{ id: shipmentRecordId, fields: { "QB PO PDF": [{ url, filename }] } }]);
       } catch (pdfErr) {
         console.error("[createPO] PDF attachment failed (non-fatal):", pdfErr);
       }
