@@ -223,7 +223,7 @@ async function createMaterial(orderId: string, lineItemId: string, fields: Recor
   const recordFields: Fields = {
     Order: [orderId],
     "Line Items": [lineItemId],
-    "Material Status": "Pending",
+    "Material Status": tracking ? "Shipped" : "Pending",
   };
   if (matName) recordFields["Material Name"] = matName;
   if (vendorName) recordFields["Vendor Name"] = vendorName;
@@ -919,7 +919,7 @@ function renderExistingMatsSection(liId: string, mats: AirtableRecord[], qrDataU
 </div>`;
 
     return `<div class="existing-mat-row" id="existing-mat-row-${mat.id}">
-  <input type="hidden" name="knownMat_${mat.id}" value="${mat.id}">
+  ${locked ? "" : `<input type="hidden" name="knownMat_${mat.id}" value="${mat.id}">`}
   <div class="existing-mat-main">
     <span class="existing-mat-name">${name}</span>
     <div class="existing-mat-controls">
