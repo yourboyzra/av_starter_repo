@@ -147,6 +147,11 @@ function renderPage(title: string, body: string, script = ""): string {
     .center h2 { font-size: 1.3rem; font-weight: 700; margin-bottom: 10px; }
     .center p { color: #555; font-size: 0.9rem; line-height: 1.6; }
     .check-icon { font-size: 3rem; margin-bottom: 16px; }
+    .redirect-block { margin-top: 28px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+    .countdown-ring-wrap { margin-bottom: 4px; }
+    .redirect-msg { font-size: 0.88rem; color: #666; }
+    .redirect-now { font-size: 0.88rem; font-weight: 600; color: #111; text-underline-offset: 3px; }
+    .redirect-now:hover { color: #444; }
     .error-box { background: #fff3f3; border: 1px solid #f5c2c2; border-radius: 8px; padding: 16px; color: #b00; font-size: 0.9rem; }
   </style>
 </head>
@@ -290,13 +295,52 @@ function renderForm(order: AirtableRecord, lineItems: AirtableRecord[]): string 
 }
 
 function renderSuccess(): string {
+  const redirectUrl = "https://www.luxlampshades.com/";
+  const seconds = 5;
+
+  const script = `
+    var remaining = ${seconds};
+    var el = document.getElementById('countdown-num');
+    var ring = document.getElementById('countdown-ring');
+    var circumference = 2 * Math.PI * 20;
+    ring.style.strokeDasharray = circumference;
+    ring.style.strokeDashoffset = 0;
+    setTimeout(function() {
+      var interval = setInterval(function() {
+        remaining--;
+        el.textContent = remaining;
+        var inlineEl = document.getElementById('countdown-num-inline');
+        if (inlineEl) inlineEl.textContent = remaining;
+        ring.style.strokeDashoffset = circumference * (1 - remaining / ${seconds});
+        if (remaining <= 0) {
+          clearInterval(interval);
+          window.location.href = '${redirectUrl}';
+        }
+      }, 1000);
+    }, 500);
+  `;
+
   return renderPage(
     "Thank you for your feedback!",
     `<div class="center">
   <div class="check-icon">&#10003;</div>
-  <h2>Thank you!</h2>
-  <p>Your feedback means a lot to us. We read every response and use it to keep improving.</p>
-</div>`
+  <h2>Thank you for your feedback!</h2>
+  <p>Your response means a lot to us. We read every submission and use it to keep improving.</p>
+  <div class="redirect-block">
+    <div class="countdown-ring-wrap" aria-hidden="true">
+      <svg width="52" height="52" viewBox="0 0 52 52">
+        <circle cx="26" cy="26" r="20" fill="none" stroke="#e5e7eb" stroke-width="3"/>
+        <circle id="countdown-ring" cx="26" cy="26" r="20" fill="none" stroke="#111" stroke-width="3"
+          stroke-linecap="round" transform="rotate(-90 26 26)"
+          style="transition: stroke-dashoffset 0.9s linear;"/>
+        <text id="countdown-num" x="26" y="31" text-anchor="middle" font-size="15" font-weight="700" fill="#111" font-family="-apple-system,sans-serif">${seconds}</text>
+      </svg>
+    </div>
+    <p class="redirect-msg">Taking you to <strong>luxlampshades.com</strong> in <span id="countdown-num-inline">${seconds}</span> seconds&hellip;</p>
+    <a href="${redirectUrl}" class="redirect-now">Take me there now</a>
+  </div>
+</div>`,
+    script
   );
 }
 
