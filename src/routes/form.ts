@@ -45,7 +45,7 @@ form.get("/:orderId", async (c) => {
 });
 
 // GET /form/:orderId/done — success page after Submit All
-form.get("/:orderId/done", (c) => c.html(renderSuccess()));
+form.get("/:orderId/done", (c) => c.html(renderSuccess(c.req.param("orderId"))));
 
 // ---------------------------------------------------------------------------
 // PATCH /form/:orderId/material/:materialId — update an existing material
@@ -339,6 +339,8 @@ function renderPage(title: string, body: string, inlineScript = ""): string {
     .success { text-align: center; padding: 48px 20px; }
     .success h2 { font-size: 1.3rem; font-weight: 700; margin-bottom: 10px; }
     .success p { color: #555; font-size: 0.9rem; }
+    .view-submission-btn { display: inline-block; margin-top: 24px; padding: 10px 20px; background: none; border: 1.5px solid #ccc; border-radius: 8px; font-size: 0.9rem; color: #555; text-decoration: none; }
+    .view-submission-btn:hover { border-color: #888; color: #111; }
     .error-box { background: #fff3f3; border: 1px solid #f5c2c2; border-radius: 8px; padding: 16px; color: #b00; font-size: 0.9rem; }
     .existing-mats-section { margin-bottom: 20px; padding-bottom: 4px; border-bottom: 1px solid #eee; }
     .existing-mat-row { padding: 10px 0; }
@@ -1125,12 +1127,13 @@ ${itemsHtml}
   );
 }
 
-function renderSuccess(): string {
+function renderSuccess(orderId: string): string {
   return renderPage(
     "Thank you!",
     `<div class="success">
   <h2>Thank you!</h2>
   <p>We've received your material information and will follow up if we have any questions.</p>
+  <a href="/form/${orderId}" class="view-submission-btn">View submitted materials</a>
 </div>`
   );
 }
