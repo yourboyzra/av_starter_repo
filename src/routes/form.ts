@@ -20,9 +20,12 @@ form.get("/:orderId", async (c) => {
   }
 
   const lineItemIds = order.fields["Line Items"] as string[] | undefined;
-  const lineItems = lineItemIds?.length
+  const allLineItems = lineItemIds?.length
     ? await airtable.findByIds("Line Items", lineItemIds)
     : [];
+  const lineItems = allLineItems.filter((li) =>
+    String(li.fields["Line Item"] ?? "").toLowerCase().includes("custom")
+  );
 
   // Fetch existing materials linked to these line items
   const allMaterialIds = lineItems.flatMap(
