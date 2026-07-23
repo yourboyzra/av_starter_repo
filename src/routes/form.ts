@@ -345,6 +345,11 @@ function renderPage(title: string, body: string, inlineScript = ""): string {
     .view-submission-btn { display: inline-block; margin-top: 24px; padding: 10px 20px; background: none; border: 1.5px solid #ccc; border-radius: 8px; font-size: 0.9rem; color: #555; text-decoration: none; }
     .view-submission-btn:hover { border-color: #888; color: #111; }
     .error-box { background: #fff3f3; border: 1px solid #f5c2c2; border-radius: 8px; padding: 16px; color: #b00; font-size: 0.9rem; }
+    .empty-state { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 36px 24px; text-align: center; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+    .empty-state svg { margin: 0 auto 14px; display: block; }
+    .empty-state-title { font-size: 1rem; font-weight: 600; color: #111; margin-bottom: 8px; }
+    .empty-state-body { font-size: 0.875rem; color: #666; margin-bottom: 14px; line-height: 1.5; }
+    .empty-state-link { font-size: 0.875rem; color: #111; font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
     .existing-mats-section { margin-bottom: 20px; padding-bottom: 4px; border-bottom: 1px solid #eee; }
     .existing-mat-row { padding: 10px 0; }
     .existing-mat-row + .existing-mat-row { border-top: 1px solid #f4f4f4; }
@@ -1109,13 +1114,20 @@ function renderForm(
   const customerName = esc(str(order.fields, "Customer Name"));
   const orderId = order.id;
 
-  const itemsHtml = lineItems.length > 0
+  const hasItems = lineItems.length > 0;
+
+  const itemsHtml = hasItems
     ? lineItems.map((li) => {
         const matIds = (li.fields["Materials"] as string[] | undefined) ?? [];
         const existingMats = matIds.map((id) => materialsById[id]).filter(Boolean) as AirtableRecord[];
         return renderLineItemCard(li, qrCodes[li.id] ?? "", existingMats);
       }).join("\n")
-    : '<div class="error-box">No items found for this order.</div>';
+    : `<div class="empty-state">
+  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#aaa" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+  <p class="empty-state-title">No custom items found for this order</p>
+  <p class="empty-state-body">If you're expecting to see items here, please reach out and we'll get it sorted out.</p>
+  <a href="mailto:support@luxlampshades.com" class="empty-state-link">support@luxlampshades.com</a>
+</div>`;
 
   const initScript = `var FORM_URL = '/form/${orderId}';`;
 
@@ -1123,9 +1135,9 @@ function renderForm(
     `Material Information — Order ${orderNum}`,
     `<h1>Material Information</h1>
 <p class="subtitle">Order ${orderNum}${customerName ? ` &middot; ${customerName}` : ""}</p>
-<p class="intro">For each item, fill in your material details and save. You can save items individually or use Submit All at the bottom.</p>
+${hasItems ? '<p class="intro">For each item, fill in your material details and save. You can save items individually or use Submit All at the bottom.</p>' : ""}
 ${itemsHtml}
-<button type="button" class="submit-all-btn" onclick="submitAll(this)">Submit All Materials</button>`,
+${hasItems ? '<button type="button" class="submit-all-btn" onclick="submitAll(this)">Submit All Materials</button>' : ""}`,
     initScript
   );
 }
