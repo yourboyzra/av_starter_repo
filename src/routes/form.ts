@@ -101,6 +101,33 @@ form.patch("/:orderId/material/:materialId", async (c) => {
 });
 
 // ---------------------------------------------------------------------------
+// POST /form/webhook/line-item-saved — server-side proxy to avoid CORS
+// POST /form/webhook/submit-all      — server-side proxy to avoid CORS
+// ---------------------------------------------------------------------------
+const LINE_ITEM_WEBHOOK = "https://hooks.airtable.com/workflows/v1/genericWebhook/app3PUPEUSBE0rF7X/wflfOylP71xNTGBS5/wtrReDjCwg2CkP6dO";
+const SUBMIT_ALL_WEBHOOK = "https://hooks.airtable.com/workflows/v1/genericWebhook/app3PUPEUSBE0rF7X/wfll4oygl0WCHrIb1/wtrXutw3Kfrr8AdwK";
+
+form.post("/webhook/line-item-saved", async (c) => {
+  const body = await c.req.json();
+  await fetch(LINE_ITEM_WEBHOOK, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  return c.json({ ok: true });
+});
+
+form.post("/webhook/submit-all", async (c) => {
+  const body = await c.req.json();
+  await fetch(SUBMIT_ALL_WEBHOOK, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  return c.json({ ok: true });
+});
+
+// ---------------------------------------------------------------------------
 // DELETE /form/:orderId/material/:materialId — delete a material record
 // ---------------------------------------------------------------------------
 form.delete("/:orderId/material/:materialId", async (c) => {
@@ -677,7 +704,7 @@ function renderPage(title: string, body: string, inlineScript = ""): string {
         alert('Could not delete. Please try again.');
       }
     }
-    async function saveItem(liId, btn) {
+    async function saveItem(liId, btn, fireWebhook) {
       var container = document.getElementById('mats-' + liId);
       var fd = new FormData();
       container.querySelectorAll('.material-section').forEach(function(section) {
@@ -717,6 +744,13 @@ function renderPage(title: string, body: string, inlineScript = ""): string {
       try {
         var res = await fetch(FORM_URL + '/item/' + liId, { method: 'POST', body: fd });
         if (!res.ok) throw new Error();
+        if (fireWebhook) {
+          fetch('/form/webhook/line-item-saved', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ lineItemId: liId })
+          }).catch(function() {});
+        }
         btn.textContent = 'Saved ✓';
         btn.classList.add('saved');
         collapseLiDetails(liId);
@@ -749,6 +783,11 @@ function renderPage(title: string, body: string, inlineScript = ""): string {
         var ok = await saveItem(liId, itemBtn);
         if (!ok) { btn.disabled = false; btn.textContent = 'Submit All Materials'; return; }
       }
+      await fetch('/form/webhook/submit-all', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId: ORDER_ID })
+      }).catch(function() {});
       window.location.href = FORM_URL + '/done';
     }
     document.querySelectorAll('input[type=file]').forEach(setupFileInput);
@@ -1094,7 +1133,7 @@ function renderLineItemCard(li: AirtableRecord, qrDataUri: string, existingMats:
   </div>
 
   <div class="card-footer">
-    <button type="button" class="item-save-btn" onclick="saveItem('${id}', this)">Save ${esc(title)}</button>
+    <button type="button" class="item-save-btn" onclick="saveItem('${id}', this, true)">Save ${esc(title)}</button>
     <span class="item-error"></span>
   </div>
 
@@ -1129,7 +1168,7 @@ function renderForm(
   <a href="mailto:support@luxlampshades.com" class="empty-state-link">support@luxlampshades.com</a>
 </div>`;
 
-  const initScript = `var FORM_URL = '/form/${orderId}';`;
+  const initScript = `var FORM_URL = '/form/${orderId}'; var ORDER_ID = '${orderId}';`;
 
   return renderPage(
     `Material Information — Order ${orderNum}`,
