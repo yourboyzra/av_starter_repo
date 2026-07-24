@@ -972,10 +972,10 @@ function renderExistingMatsSection(liId: string, mats: AirtableRecord[], qrDataU
     <div class="existing-mat-controls">
       ${locked
         ? `<span class="status-chip ${chipClass}">${esc(status)}</span>`
-        : `${fromMe ? `<button type="button" id="mat-qr-btn-${mat.id}" class="show-qr-btn" onclick="toggleMatQR('${mat.id}')">
+        : `<button type="button" id="mat-qr-btn-${mat.id}" class="show-qr-btn" onclick="toggleMatQR('${mat.id}')"${fromVendor ? ' style="display:none"' : ""}>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
         Show QR code
-      </button>` : ""}
+      </button>
       <button type="button" class="edit-mat-btn" onclick="toggleEditForm('${mat.id}')">Edit</button>
       <label class="shipped-label">
         <input type="checkbox" name="update_${mat.id}_shipped"${isShipped ? " checked" : ""} onchange="toggleShippedTracking(this,'${mat.id}')">
@@ -983,7 +983,7 @@ function renderExistingMatsSection(liId: string, mats: AirtableRecord[], qrDataU
       </label>`}
     </div>
   </div>
-  ${locked || !fromMe ? "" : qrBlock}
+  ${locked ? "" : qrBlock}
   ${locked ? "" : `<input type="hidden" name="update_${mat.id}_shipfrom" value="${esc(shipFromAT)}">
   <div id="shipped-tracking-${mat.id}" style="margin-top:8px;${isShipped ? "" : "display:none"}">
     <input type="text" name="update_${mat.id}_tracking" value="${existingTracking}" placeholder="${fromVendor ? "Tracking number (required to mark shipped)" : "Tracking number (optional)"}" style="width:100%;border:1px solid #ddd;border-radius:7px;padding:8px 11px;font-size:0.875rem;font-family:inherit;background:#fafafa;color:#111">
