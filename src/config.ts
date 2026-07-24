@@ -20,10 +20,6 @@ const Env = z.object({
   AIRTABLE_BASE_ID: z.string().startsWith("app"),
   INTERNAL_JOB_SECRET: z.string().min(16),
 
-  // Stripe (reference connector)
-  STRIPE_API_KEY: z.string().optional(),
-  STRIPE_WEBHOOK_SECRET: z.string().optional(),
-
   // Shopify — legacy static-token custom apps are closed to new creation as
   // of Jan 1 2026; this is a real OAuth app (see src/routes/oauth.ts).
   SHOPIFY_STORE_DOMAIN: z.string().optional(), // e.g. your-store.myshopify.com
