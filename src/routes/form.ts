@@ -3,8 +3,9 @@ import QRCode from "qrcode";
 import { airtable, type AirtableRecord, type Fields } from "../lib/airtable.js";
 import { r2Configured, uploadToR2 } from "../lib/r2.js";
 import { esc, str } from "../lib/html.js";
+import { env } from "../config.js";
 
-const MATERIALS_PAGE = "https://airtable.com/app3PUPEUSBE0rF7X/pagk01v2lRJvStKhO";
+const MATERIALS_PAGE = env.MATERIALS_PAGE_URL ?? "";
 
 export const form = new Hono();
 
@@ -105,8 +106,8 @@ form.patch("/:orderId/material/:materialId", async (c) => {
 // POST /form/webhook/line-item-saved — server-side proxy to avoid CORS
 // POST /form/webhook/submit-all      — server-side proxy to avoid CORS
 // ---------------------------------------------------------------------------
-const LINE_ITEM_WEBHOOK = "https://hooks.airtable.com/workflows/v1/genericWebhook/app3PUPEUSBE0rF7X/wflfOylP71xNTGBS5/wtrReDjCwg2CkP6dO";
-const SUBMIT_ALL_WEBHOOK = "https://hooks.airtable.com/workflows/v1/genericWebhook/app3PUPEUSBE0rF7X/wfll4oygl0WCHrIb1/wtrXutw3Kfrr8AdwK";
+const LINE_ITEM_WEBHOOK = env.LINE_ITEM_WEBHOOK_URL ?? "";
+const SUBMIT_ALL_WEBHOOK = env.SUBMIT_ALL_WEBHOOK_URL ?? "";
 
 form.post("/webhook/line-item-saved", async (c) => {
   const body = await c.req.json();

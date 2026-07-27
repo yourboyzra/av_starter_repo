@@ -58,8 +58,11 @@ const Env = z.object({
   OAUTH_REDIRECT_BASE_URL: z.string().url().default("http://localhost:3000"),
   QUICKBOOKS_CLIENT_ID: z.string().optional(),
   QUICKBOOKS_CLIENT_SECRET: z.string().optional(),
-  GHL_CLIENT_ID: z.string().optional(),
-  GHL_CLIENT_SECRET: z.string().optional(),
+
+  // Materials form — Airtable interface page and automation webhooks
+  MATERIALS_PAGE_URL: z.string().url().optional(),
+  LINE_ITEM_WEBHOOK_URL: z.string().url().optional(),
+  SUBMIT_ALL_WEBHOOK_URL: z.string().url().optional(),
 
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
 });

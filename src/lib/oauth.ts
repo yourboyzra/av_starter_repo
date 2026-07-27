@@ -81,14 +81,6 @@ export const oauthProviders: Record<string, OAuthProviderConfig> = {
     scopes: ["com.intuit.quickbooks.accounting"],
     tenantFromCallback: (query) => query["realmId"] ?? "default",
   },
-  ghl: {
-    authorizeUrl: "https://marketplace.gohighlevel.com/oauth/chooselocation",
-    tokenUrl: "https://services.leadconnectorhq.com/oauth/token",
-    clientId: () => requireEnv("GHL_CLIENT_ID"),
-    clientSecret: () => requireEnv("GHL_CLIENT_SECRET"),
-    scopes: ["contacts.readonly", "contacts.write"],
-    tenantFromCallback: (_query, tokenResponse) => String(tokenResponse["locationId"] ?? "default"),
-  },
 };
 
 // ---------------------------------------------------------------------------
