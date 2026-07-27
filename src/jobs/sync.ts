@@ -49,12 +49,11 @@ async function linkLineItemsToOrders(): Promise<number> {
   ];
 
   const orderMap = new Map<string, string>(); // shopify order id (string) -> airtable record id
-  for (const shopifyOrderId of uniqueShopifyOrderIds) {
-    const rows = await airtable.list("Orders", {
-      filterByFormula: `{Shopify Order ID} = ${Number(shopifyOrderId)}`,
-      maxRecords: "1",
-    });
-    if (rows[0]) orderMap.set(shopifyOrderId, rows[0].id);
+  const orderFilter = `OR(${uniqueShopifyOrderIds.map((id) => `{Shopify Order ID} = ${Number(id)}`).join(",")})`;
+  const matchedOrders = await airtable.list("Orders", { filterByFormula: orderFilter });
+  for (const order of matchedOrders) {
+    const shopifyId = String(order.fields["Shopify Order ID"] ?? "");
+    if (shopifyId) orderMap.set(shopifyId, order.id);
   }
 
   const updates = unlinked.flatMap((li) => {

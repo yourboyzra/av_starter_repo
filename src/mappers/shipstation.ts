@@ -2,6 +2,7 @@ import type { Fields } from "../lib/airtable.js";
 import { requireEnv } from "../config.js";
 import type { ExternalRecord, ProviderSpecs } from "../connectors/types.js";
 import type { ShipStationShipment } from "../connectors/shipstation.js";
+import { firstLookup } from "./utils.js";
 
 /**
  * ShipStation mapping specs — pure functions, payload in -> fields out.
@@ -37,11 +38,6 @@ function carrierFromServiceCode(code?: string | null): string {
   return "Other";
 }
 
-/** Lookup fields (multipleLookupValues) come back as arrays — take the first value. */
-function firstLookup(value: unknown): string {
-  if (Array.isArray(value)) return typeof value[0] === "string" ? value[0] : "";
-  return typeof value === "string" ? value : "";
-}
 
 const COUNTRY_NAME_TO_CODE: Record<string, string> = {
   "united states": "US", "united states of america": "US", "canada": "CA",

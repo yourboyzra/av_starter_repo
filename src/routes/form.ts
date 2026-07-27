@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import QRCode from "qrcode";
 import { airtable, type AirtableRecord, type Fields } from "../lib/airtable.js";
 import { r2Configured, uploadToR2 } from "../lib/r2.js";
+import { esc, str } from "../lib/html.js";
 
 const MATERIALS_PAGE = "https://airtable.com/app3PUPEUSBE0rF7X/pagk01v2lRJvStKhO";
 
@@ -288,17 +289,6 @@ async function createMaterial(orderId: string, lineItemId: string, fields: Recor
 // HTML rendering
 // ---------------------------------------------------------------------------
 
-function esc(s: unknown): string {
-  return String(s ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
-
-function str(fields: Record<string, unknown>, key: string): string {
-  return String(fields[key] ?? "");
-}
 
 function renderPage(title: string, body: string, inlineScript = ""): string {
   return `<!doctype html>

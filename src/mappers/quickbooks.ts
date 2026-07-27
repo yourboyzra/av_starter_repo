@@ -1,5 +1,6 @@
 import type { Fields } from "../lib/airtable.js";
 import type { ExternalRecord, ProviderSpecs } from "../connectors/types.js";
+import { firstLookup } from "./utils.js";
 
 /**
  * QuickBooks mapping specs — pure functions, payload in -> fields out.
@@ -25,11 +26,6 @@ import type { ExternalRecord, ProviderSpecs } from "../connectors/types.js";
  *   GET /v3/company/{realmId}/query?query=SELECT * FROM Account WHERE AccountType='Accounts Payable'
  */
 
-/** Lookup fields (multipleLookupValues) come back as arrays — take first value. */
-function firstLookup(value: unknown): string {
-  if (Array.isArray(value)) return typeof value[0] === "string" ? value[0] : "";
-  return typeof value === "string" ? value : "";
-}
 
 const PO_STATUS: Record<string, string> = {
   Open: "Open",

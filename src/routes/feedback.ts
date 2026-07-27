@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { airtable, type AirtableRecord } from "../lib/airtable.js";
+import { esc, str } from "../lib/html.js";
 
 export const feedback = new Hono();
 
@@ -88,17 +89,6 @@ feedback.post("/:orderId", async (c) => {
 // HTML rendering
 // ---------------------------------------------------------------------------
 
-function esc(s: unknown): string {
-  return String(s ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
-
-function str(fields: Record<string, unknown>, key: string): string {
-  return String(fields[key] ?? "");
-}
 
 function renderPage(title: string, body: string, script = ""): string {
   return `<!doctype html>
