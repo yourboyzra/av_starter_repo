@@ -110,23 +110,33 @@ const LINE_ITEM_WEBHOOK = env.LINE_ITEM_WEBHOOK_URL ?? "";
 const SUBMIT_ALL_WEBHOOK = env.SUBMIT_ALL_WEBHOOK_URL ?? "";
 
 form.post("/webhook/line-item-saved", async (c) => {
+  if (!LINE_ITEM_WEBHOOK) {
+    console.error("[webhook] LINE_ITEM_WEBHOOK_URL is not set");
+    return c.json({ ok: false, error: "webhook not configured" }, 500);
+  }
   const body = await c.req.json();
-  await fetch(LINE_ITEM_WEBHOOK, {
+  const res = await fetch(LINE_ITEM_WEBHOOK, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
-  return c.json({ ok: true });
+  if (!res.ok) console.error(`[webhook] line-item-saved upstream failed: ${res.status}`);
+  return c.json({ ok: res.ok });
 });
 
 form.post("/webhook/submit-all", async (c) => {
+  if (!SUBMIT_ALL_WEBHOOK) {
+    console.error("[webhook] SUBMIT_ALL_WEBHOOK_URL is not set");
+    return c.json({ ok: false, error: "webhook not configured" }, 500);
+  }
   const body = await c.req.json();
-  await fetch(SUBMIT_ALL_WEBHOOK, {
+  const res = await fetch(SUBMIT_ALL_WEBHOOK, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
-  return c.json({ ok: true });
+  if (!res.ok) console.error(`[webhook] submit-all upstream failed: ${res.status}`);
+  return c.json({ ok: res.ok });
 });
 
 // ---------------------------------------------------------------------------
