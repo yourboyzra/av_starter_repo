@@ -115,12 +115,13 @@ form.post("/webhook/line-item-saved", async (c) => {
     return c.json({ ok: false, error: "webhook not configured" }, 500);
   }
   const body = await c.req.json();
+  console.log("[webhook] line-item-saved firing, body:", JSON.stringify(body));
   const res = await fetch(LINE_ITEM_WEBHOOK, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
-  if (!res.ok) console.error(`[webhook] line-item-saved upstream failed: ${res.status}`);
+  console.log(`[webhook] line-item-saved upstream status: ${res.status}`);
   return c.json({ ok: res.ok });
 });
 
@@ -130,12 +131,13 @@ form.post("/webhook/submit-all", async (c) => {
     return c.json({ ok: false, error: "webhook not configured" }, 500);
   }
   const body = await c.req.json();
+  console.log("[webhook] submit-all firing, body:", JSON.stringify(body));
   const res = await fetch(SUBMIT_ALL_WEBHOOK, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
-  if (!res.ok) console.error(`[webhook] submit-all upstream failed: ${res.status}`);
+  console.log(`[webhook] submit-all upstream status: ${res.status}`);
   return c.json({ ok: res.ok });
 });
 
