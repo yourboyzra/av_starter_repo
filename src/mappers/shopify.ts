@@ -106,9 +106,10 @@ export const shopifySpecs: ProviderSpecs = {
       const unitPrice = Number.parseFloat(li.price ?? "0");
       const variantTitle = li.variant_title ?? li.sku ?? "";
 
-      // Extract base diameter from variant titles like '16" Base diameter' or
-      // '20" Base Diameter / Antique Brass'
-      const baseDiameterMatch = variantTitle.match(/(\d+(?:\.\d+)?)[""]\s*base\s+diameter/i);
+      // Extract base diameter from variant titles. Handles:
+      //   '16" Base diameter', '16" Base', '18" Base'
+      //   '20" Bottom', '7" Top x 20" Bottom x 13" Slant'
+      const baseDiameterMatch = variantTitle.match(/(\d+(?:\.\d+)?)[""]\s*(?:base(?:\s+diameter)?|bottom)/i);
       const baseDiameter = baseDiameterMatch ? Number(baseDiameterMatch[1]) : null;
 
       return {
