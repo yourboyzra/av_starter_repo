@@ -89,9 +89,18 @@ export interface ShipStationRate {
 
 /** Fetch available rates for a shipment spec built by mapOut. */
 export async function getShipmentRates(shipmentSpec: Record<string, unknown>): Promise<ShipStationRate[]> {
-  const carriersRes = await shipstationRequest<{ carriers: { carrier_id: string }[] }>("GET", "/v2/carriers");
-  const carrierIds = (carriersRes.carriers ?? []).map((c) => c.carrier_id);
-  if (carrierIds.length === 0) throw new Error("No carriers configured in ShipStation account");
+  const carriersRes = await shipstationRequest<{ carriers: { carrier_id: string; nickname?: string; friendly_name?: string }[] }>("GET", "/v2/carriers");
+  const allCarriers = carriersRes.carriers ?? [];
+  if (allCarriers.length === 0) throw new Error("No carriers configured in ShipStation account");
+
+  console.log("[rates] carriers:", allCarriers.map((c) => `${c.carrier_id} — ${c.nickname ?? c.friendly_name}`).join(", "));
+
+  // Use only the Fenchel carrier account; fall back to all carriers if none matched
+  const fenchelCarriers = allCarriers.filter((c) =>
+    (c.nickname ?? c.friendly_name ?? "").toLowerCase().includes("fenchel")
+  );
+  const carrierIds = (fenchelCarriers.length ? fenchelCarriers : allCarriers).map((c) => c.carrier_id);
+  if (fenchelCarriers.length === 0) console.warn("[rates] No Fenchel carrier found — returning rates for all carriers");
 
   const result = await shipstationRequest<{ rate_response: { rates: ShipStationRate[] } }>("POST", "/v2/rates", {
     rate_options: { carrier_ids: carrierIds },
