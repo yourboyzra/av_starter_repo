@@ -99,53 +99,60 @@ function renderPage(title: string, body: string, script = ""): string {
   <title>${esc(title)}</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; background: #f4f4f4; color: #111; line-height: 1.5; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; background: #F5F3EF; color: #1C1410; line-height: 1.5; }
+    .page-header { text-align: center; padding: 28px 16px 12px; }
+    .page-header img { height: 72px; width: auto; }
+    .page-header-divider { border: none; border-top: 1px solid #E4DFD7; margin: 0; }
     .container { max-width: 600px; margin: 0 auto; padding: 28px 16px 60px; }
-    h1 { font-size: 1.4rem; font-weight: 700; margin-bottom: 4px; }
-    .subtitle { color: #666; font-size: 0.875rem; margin-bottom: 6px; }
-    .intro { color: #555; font-size: 0.875rem; margin-bottom: 28px; }
-    .order-card { background: #fff; border-radius: 12px; margin-bottom: 24px; box-shadow: 0 1px 4px rgba(0,0,0,0.07); overflow: hidden; }
+    h1 { font-size: 1.4rem; font-weight: 700; margin-bottom: 4px; font-family: Georgia, "Times New Roman", serif; }
+    .subtitle { color: #6B625A; font-size: 0.875rem; margin-bottom: 6px; }
+    .intro { color: #6B625A; font-size: 0.875rem; margin-bottom: 28px; }
+    .order-card { background: #fff; border-radius: 12px; margin-bottom: 24px; box-shadow: 0 1px 4px rgba(28,20,16,0.07); overflow: hidden; }
     .order-card-toggle { width: 100%; display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; background: none; border: none; cursor: pointer; text-align: left; }
-    .order-card-toggle:hover { background: #fafafa; }
-    .order-card-label { font-size: 0.72rem; font-weight: 700; color: #999; text-transform: uppercase; letter-spacing: 0.06em; }
-    .order-card-chevron { width: 16px; height: 16px; stroke: #aaa; fill: none; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; transition: transform 0.2s; flex-shrink: 0; }
+    .order-card-toggle:hover { background: #FAF8F5; }
+    .order-card-label { font-size: 0.72rem; font-weight: 700; color: #6B625A; text-transform: uppercase; letter-spacing: 0.06em; }
+    .order-card-chevron { width: 16px; height: 16px; stroke: #A09890; fill: none; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; transition: transform 0.2s; flex-shrink: 0; }
     .order-card.open .order-card-chevron { transform: rotate(180deg); }
     .order-items { list-style: none; padding: 0 20px 16px; display: none; }
-    .order-items li { font-size: 0.9rem; color: #333; padding: 5px 0; border-bottom: 1px solid #f0f0f0; display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+    .order-items li { font-size: 0.9rem; color: #4A4139; padding: 5px 0; border-bottom: 1px solid #F0ECE6; display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
     .order-items li:last-child { border-bottom: none; }
-    .item-qty { font-size: 0.8rem; color: #888; flex-shrink: 0; }
-    .section { background: #fff; border-radius: 12px; padding: 20px; margin-bottom: 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.07); }
-    .section-label { font-size: 0.75rem; font-weight: 700; color: #999; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px; }
-    .section-question { font-size: 0.95rem; font-weight: 600; color: #111; margin-bottom: 14px; }
+    .item-qty { font-size: 0.8rem; color: #6B625A; flex-shrink: 0; }
+    .section { background: #fff; border-radius: 12px; padding: 20px; margin-bottom: 16px; box-shadow: 0 1px 4px rgba(28,20,16,0.07); }
+    .section-label { font-size: 0.75rem; font-weight: 700; color: #6B625A; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px; }
+    .section-question { font-size: 0.95rem; font-weight: 600; color: #1C1410; margin-bottom: 14px; }
     .stars { display: flex; gap: 6px; margin-bottom: 2px; }
-    .star-btn { background: none; border: none; cursor: pointer; padding: 2px; font-size: 2rem; line-height: 1; color: #ddd; transition: color 0.1s, transform 0.1s; }
-    .star-btn:hover, .star-btn.active { color: #f59e0b; }
+    .star-btn { background: none; border: none; cursor: pointer; padding: 2px; font-size: 2rem; line-height: 1; color: #E4DFD7; transition: color 0.1s, transform 0.1s; }
+    .star-btn:hover, .star-btn.active { color: #C8922A; }
     .star-btn:hover { transform: scale(1.1); }
-    .star-hint { font-size: 0.78rem; color: #aaa; min-height: 18px; }
+    .star-hint { font-size: 0.78rem; color: #A09890; min-height: 18px; }
     .yn-group { display: flex; gap: 10px; }
     .yn-opt { flex: 1; }
     .yn-opt input[type=radio] { position: absolute; opacity: 0; width: 0; height: 0; }
-    .yn-opt label { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 12px; border: 1.5px solid #e0e0e0; border-radius: 9px; cursor: pointer; font-size: 0.95rem; font-weight: 500; background: #fafafa; transition: border-color 0.15s, background 0.15s; }
-    .yn-opt input[type=radio]:checked + label { border-color: #111; background: #f0f0f0; font-weight: 600; }
-    .yn-opt label:hover { border-color: #999; }
-    textarea { width: 100%; border: 1px solid #ddd; border-radius: 8px; padding: 10px 12px; font-size: 0.95rem; font-family: inherit; background: #fafafa; color: #111; resize: vertical; min-height: 96px; }
-    textarea:focus { outline: none; border-color: #555; background: #fff; }
-    .submit-btn { display: block; width: 100%; padding: 14px; background: #111; color: #fff; border: none; border-radius: 10px; font-size: 1rem; font-weight: 600; cursor: pointer; margin-top: 8px; }
-    .submit-btn:hover { background: #333; }
-    .submit-btn:disabled { background: #999; cursor: default; }
+    .yn-opt label { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 12px; border: 1.5px solid #E4DFD7; border-radius: 9px; cursor: pointer; font-size: 0.95rem; font-weight: 500; background: #FAF8F5; transition: border-color 0.15s, background 0.15s; }
+    .yn-opt input[type=radio]:checked + label { border-color: #1C1410; background: #EDEBE6; font-weight: 600; }
+    .yn-opt label:hover { border-color: #6B625A; }
+    textarea { width: 100%; border: 1px solid #E4DFD7; border-radius: 8px; padding: 10px 12px; font-size: 0.95rem; font-family: inherit; background: #FAF8F5; color: #1C1410; resize: vertical; min-height: 96px; }
+    textarea:focus { outline: none; border-color: #5B6B3A; background: #fff; }
+    .submit-btn { display: block; width: 100%; padding: 14px; background: #1C1410; color: #fff; border: none; border-radius: 10px; font-size: 1rem; font-weight: 600; cursor: pointer; margin-top: 8px; }
+    .submit-btn:hover { background: #3A2E28; }
+    .submit-btn:disabled { background: #A09890; cursor: default; }
     .center { text-align: center; padding: 52px 20px; }
-    .center h2 { font-size: 1.3rem; font-weight: 700; margin-bottom: 10px; }
-    .center p { color: #555; font-size: 0.9rem; line-height: 1.6; }
+    .center h2 { font-size: 1.3rem; font-weight: 700; margin-bottom: 10px; font-family: Georgia, "Times New Roman", serif; }
+    .center p { color: #6B625A; font-size: 0.9rem; line-height: 1.6; }
     .check-icon { font-size: 3rem; margin-bottom: 16px; }
     .redirect-block { margin-top: 28px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
     .countdown-ring-wrap { margin-bottom: 4px; }
-    .redirect-msg { font-size: 0.88rem; color: #666; }
-    .redirect-now { font-size: 0.88rem; font-weight: 600; color: #111; text-underline-offset: 3px; }
-    .redirect-now:hover { color: #444; }
+    .redirect-msg { font-size: 0.88rem; color: #6B625A; }
+    .redirect-now { font-size: 0.88rem; font-weight: 600; color: #1C1410; text-underline-offset: 3px; }
+    .redirect-now:hover { color: #3A2E28; }
     .error-box { background: #fff3f3; border: 1px solid #f5c2c2; border-radius: 8px; padding: 16px; color: #b00; font-size: 0.9rem; }
   </style>
 </head>
 <body>
+  <div class="page-header">
+    <img src="/public/logo.png" alt="Lux Fine Lampshades">
+  </div>
+  <hr class="page-header-divider">
   <div class="container">
     ${body}
   </div>
@@ -231,7 +238,7 @@ function renderForm(order: AirtableRecord, lineItems: AirtableRecord[]): string 
 
   return renderPage(
     `Share Your Feedback — Order ${orderNumber}`,
-    `<h1>Feedback Form — How did we do?</h1>
+    `<h1>Custom Lampshade Feedback Form — How did we do?</h1>
 <p class="subtitle">Order ${orderNumber}${customerName ? ` &middot; ${customerName}` : ""}</p>
 <p class="intro">Thank you for choosing Lux Lampshade! We hope you're thrilled with your custom lampshade. Your feedback helps us continue improving our products and customer experience while helping future customers shop with confidence.</p>
 <p class="intro">This short survey will only take a minute to complete. We truly appreciate you taking the time to share your experience with us.</p>

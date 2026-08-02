@@ -20,6 +20,12 @@ import { pushOutbound } from "./sync/engine.js";
  */
 const app = new Hono();
 
+// Static assets (logo, etc.) — served before any route
+if (!process.env.VERCEL) {
+  const { serveStatic } = await import("@hono/node-server/serve-static");
+  app.use("/public/*", serveStatic({ root: "./" }));
+}
+
 app.route("/health", health);
 app.route("/form", form);
 app.route("/feedback", feedback);
