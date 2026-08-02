@@ -96,9 +96,10 @@ export async function getShipmentRates(shipmentSpec: Record<string, unknown>): P
   console.log("[rates] carriers:", allCarriers.map((c) => `${c.carrier_id} — ${c.nickname ?? c.friendly_name}`).join(", "));
 
   // Use only the Fenchel carrier account; fall back to all carriers if none matched
-  const fenchelCarriers = allCarriers.filter((c) =>
-    (c.nickname ?? c.friendly_name ?? "").toLowerCase().includes("fenchel")
-  );
+  const fenchelCarriers = allCarriers.filter((c) => {
+    const name = (c.nickname ?? c.friendly_name ?? "").toLowerCase();
+    return name.includes("fenchel") && name.includes("fedex");
+  });
   const carrierIds = (fenchelCarriers.length ? fenchelCarriers : allCarriers).map((c) => c.carrier_id);
   if (fenchelCarriers.length === 0) console.warn("[rates] No Fenchel carrier found — returning rates for all carriers");
 
