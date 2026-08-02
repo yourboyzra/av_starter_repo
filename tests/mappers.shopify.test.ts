@@ -108,4 +108,59 @@ describe("shopify line_item mapIn", () => {
     expect(fields["Order"]).toBeUndefined();
     expect(shopifySpecs["line_item"]!.mapOut).toBeUndefined();
   });
+
+  it("parses top, base, and slant from a full variant title", () => {
+    const fields = shopifySpecs["line_item"]!.mapIn(
+      rec("line_item", {
+        id: 2,
+        order_id: 1,
+        quantity: 1,
+        price: "0",
+        variant_title: '7" Top x 20" Bottom x 13" Slant',
+      })
+    );
+    expect(fields["Top Diameter (in)"]).toBe(7);
+    expect(fields["Base Diameter (in)"]).toBe(20);
+    expect(fields["Slant (in)"]).toBe(13);
+  });
+
+  it("omits dimension fields when variant has no parseable dimensions", () => {
+    const fields = shopifySpecs["line_item"]!.mapIn(
+      rec("line_item", { id: 3, order_id: 1, quantity: 1, price: "0", variant_title: "Linen / White" })
+    );
+    expect(fields["Top Diameter (in)"]).toBeUndefined();
+    expect(fields["Base Diameter (in)"]).toBeUndefined();
+    expect(fields["Slant (in)"]).toBeUndefined();
+  });
+
+  it("extracts File Upload properties as Custom Files attachments", () => {
+    const fields = shopifySpecs["line_item"]!.mapIn(
+      rec("line_item", {
+        id: 4,
+        order_id: 1,
+        quantity: 1,
+        price: "0",
+        properties: [
+          { name: "Style", value: "Box Pleat" },
+          { name: "File Upload ", value: "https://option.nyc3.digitaloceanspaces.com/uploads/66785/file-abc.pdf" },
+        ],
+      })
+    );
+    expect(fields["Custom Files"]).toEqual([
+      { url: "https://option.nyc3.digitaloceanspaces.com/uploads/66785/file-abc.pdf", filename: "file-abc.pdf" },
+    ]);
+  });
+
+  it("omits Custom Files when no file upload properties exist", () => {
+    const fields = shopifySpecs["line_item"]!.mapIn(
+      rec("line_item", {
+        id: 5,
+        order_id: 1,
+        quantity: 1,
+        price: "0",
+        properties: [{ name: "Style", value: "Box Pleat" }],
+      })
+    );
+    expect(fields["Custom Files"]).toBeUndefined();
+  });
 });

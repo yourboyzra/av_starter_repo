@@ -105,12 +105,27 @@ export const shopifySpecs: ProviderSpecs = {
       const quantity = li.quantity ?? 0;
       const unitPrice = Number.parseFloat(li.price ?? "0");
       const variantTitle = li.variant_title ?? li.sku ?? "";
+      const properties = li.properties ?? [];
 
-      // Extract base diameter from variant titles. Handles:
-      //   '16" Base diameter', '16" Base', '18" Base'
-      //   '20" Bottom', '7" Top x 20" Bottom x 13" Slant'
+      // Extract dimensions from variant title. Handles:
+      //   '16" Base diameter', '16" Base', '18" Base', '20" Bottom'
+      //   '7" Top x 20" Bottom x 13" Slant'
       const baseDiameterMatch = variantTitle.match(/(\d+(?:\.\d+)?)[""]\s*(?:base(?:\s+diameter)?|bottom)/i);
       const baseDiameter = baseDiameterMatch ? Number(baseDiameterMatch[1]) : null;
+      const topDiameterMatch = variantTitle.match(/(\d+(?:\.\d+)?)[""×]\s*top/i);
+      const topDiameter = topDiameterMatch ? Number(topDiameterMatch[1]) : null;
+      const slantMatch = variantTitle.match(/(\d+(?:\.\d+)?)[""×]\s*(?:slant|slope)/i);
+      const slant = slantMatch ? Number(slantMatch[1]) : null;
+
+      // Extract file upload URLs from Shopify line item properties -> Custom Files
+      const fileUploads = properties
+        .filter((p) => p.name.trim().toLowerCase() === "file upload")
+        .map((p) => {
+          const url = p.value.trim();
+          const filename = url.split("/").pop() ?? "upload";
+          return { url, filename };
+        })
+        .filter((a) => a.url.startsWith("http"));
 
       return {
         "Line Item": li.title ?? li.name ?? "",
@@ -118,10 +133,13 @@ export const shopifySpecs: ProviderSpecs = {
         Quantity: quantity,
         "Unit Price": unitPrice,
         "Line Total": Math.round(unitPrice * quantity * 100) / 100,
-        "Custom Order Details": formatProperties(li.properties),
+        "Custom Order Details": formatProperties(properties),
         "Shopify Line Item ID": String(li.id),
         "Shopify Order ID": String(li.order_id),
         ...(baseDiameter !== null ? { "Base Diameter (in)": baseDiameter } : {}),
+        ...(topDiameter !== null ? { "Top Diameter (in)": topDiameter } : {}),
+        ...(slant !== null ? { "Slant (in)": slant } : {}),
+        ...(fileUploads.length ? { "Custom Files": fileUploads } : {}),
       };
     },
   },
