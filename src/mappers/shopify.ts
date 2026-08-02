@@ -104,16 +104,23 @@ export const shopifySpecs: ProviderSpecs = {
       const li = rec.raw as ShopifyLineItemWithOrder;
       const quantity = li.quantity ?? 0;
       const unitPrice = Number.parseFloat(li.price ?? "0");
+      const variantTitle = li.variant_title ?? li.sku ?? "";
+
+      // Extract base diameter from variant titles like '16" Base diameter' or
+      // '20" Base Diameter / Antique Brass'
+      const baseDiameterMatch = variantTitle.match(/(\d+(?:\.\d+)?)[""]\s*base\s+diameter/i);
+      const baseDiameter = baseDiameterMatch ? Number(baseDiameterMatch[1]) : null;
 
       return {
         "Line Item": li.title ?? li.name ?? "",
-        "Variant / Description": li.variant_title ?? li.sku ?? "",
+        "Variant / Description": variantTitle,
         Quantity: quantity,
         "Unit Price": unitPrice,
         "Line Total": Math.round(unitPrice * quantity * 100) / 100,
         "Custom Order Details": formatProperties(li.properties),
         "Shopify Line Item ID": String(li.id),
         "Shopify Order ID": String(li.order_id),
+        ...(baseDiameter !== null ? { "Base Diameter (in)": baseDiameter } : {}),
       };
     },
   },
