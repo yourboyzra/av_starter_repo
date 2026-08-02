@@ -29,7 +29,7 @@ export async function fetchAndWriteRates(shipmentRecordId: string): Promise<{ co
   if (!rates.length) return { count: 0 };
 
   const toCreate = rates
-    .filter((r) => !r.error_messages?.length)
+    .filter((r) => !r.error_messages?.length && r.carrier_friendly_name?.toLowerCase().includes("fenchel"))
     .map((r) => ({
       fields: {
         Rate: `${r.carrier_friendly_name} — ${r.service_type}`,

@@ -218,6 +218,7 @@ form.post("/:orderId/item/:lineItemId", async (c) => {
     const liType = String(body["li_type"] ?? "").trim();
     const liTopDiameterStr = String(body["li_topDiameter"] ?? "").trim();
     const liSlantStr = String(body["li_slant"] ?? "").trim();
+    const liBaseDiameterStr = String(body["li_baseDiameter"] ?? "").trim();
     const liTrimIncluded = body["li_trimIncluded"] === "on";
     const liNotes = String(body["li_notes"] ?? "").trim();
     const liDetailFields: Fields = { "Trim Included": liTrimIncluded };
@@ -227,6 +228,7 @@ form.post("/:orderId/item/:lineItemId", async (c) => {
     if (liType) liDetailFields["Type"] = liType;
     if (liTopDiameterStr) liDetailFields["Top Diameter (in)"] = Number(liTopDiameterStr);
     if (liSlantStr) liDetailFields["Slant (in)"] = Number(liSlantStr);
+    if (liBaseDiameterStr) liDetailFields["Base Diameter (in)"] = Number(liBaseDiameterStr);
     if (liNotes) liDetailFields["Notes"] = liNotes;
     try {
       await airtable.update("Line Items", [{ id: lineItemId, fields: liDetailFields }]);
@@ -1015,11 +1017,12 @@ function renderLineItemDetails(li: AirtableRecord): string {
   const type = esc(str(f, "Type"));
   const topDiameter = f["Top Diameter (in)"] != null ? String(f["Top Diameter (in)"]) : "";
   const slant = f["Slant (in)"] != null ? String(f["Slant (in)"]) : "";
+  const baseDiameter = f["Base Diameter (in)"] != null ? String(f["Base Diameter (in)"]) : "";
   const trimIncluded = f["Trim Included"] === true;
   const notes = esc(str(f, "Notes"));
 
   // Start collapsed if any values are already set (returning visit)
-  const hasValues = !!(style || fitting || str(f, "Color") || str(f, "Type") || topDiameter || slant || trimIncluded || str(f, "Notes"));
+  const hasValues = !!(style || fitting || str(f, "Color") || str(f, "Type") || topDiameter || slant || baseDiameter || trimIncluded || str(f, "Notes"));
 
   const summaryParts: string[] = [];
   if (style) summaryParts.push(style);
@@ -1078,10 +1081,14 @@ function renderLineItemDetails(li: AirtableRecord): string {
         <input type="text" name="li_type" value="${type}" placeholder="e.g. Drum">
       </div>
     </div>
-    <div class="li-row">
+    <div class="li-row" style="grid-template-columns:1fr 1fr 1fr">
       <div class="field">
         <label class="field-label">Top diameter (in)</label>
         <input type="number" name="li_topDiameter" value="${esc(topDiameter)}" step="0.1" min="0" placeholder="0.0">
+      </div>
+      <div class="field">
+        <label class="field-label">Base diameter (in)</label>
+        <input type="number" name="li_baseDiameter" value="${esc(baseDiameter)}" step="0.1" min="0" placeholder="0.0">
       </div>
       <div class="field">
         <label class="field-label">Slant (in)</label>
