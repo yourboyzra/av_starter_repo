@@ -64,16 +64,25 @@ export async function createPO(shipmentRecordId: string): Promise<{ id: string; 
     basePayload["Memo"] = [customerName, basePayload["Memo"]].filter(Boolean).join(" — ");
   }
 
-  // Override Line array with one entry per line item
+  // Single line using PO Amount from the Shipment record.
+  // Descriptions from all linked line items are combined for detail,
+  // but individual line totals are not sent to QB.
+  const poAmount = Number(record.fields["PO Amount"] ?? 0);
   if (lineItems.length > 0) {
-    basePayload["Line"] = lineItems.map((li) => ({
-      DetailType: "AccountBasedExpenseLineDetail",
-      Amount: Number(li.fields["Line Total"] ?? 0),
-      Description: buildLineDescription(li.fields as Record<string, unknown>),
-      AccountBasedExpenseLineDetail: {
-        AccountRef: { value: "80" },
+    const combinedDescription = lineItems
+      .map((li) => buildLineDescription(li.fields as Record<string, unknown>))
+      .filter(Boolean)
+      .join("\n\n");
+    basePayload["Line"] = [
+      {
+        DetailType: "AccountBasedExpenseLineDetail",
+        Amount: poAmount,
+        Description: combinedDescription,
+        AccountBasedExpenseLineDetail: {
+          AccountRef: { value: "80" },
+        },
       },
-    }));
+    ];
   }
 
   const payload = basePayload;
