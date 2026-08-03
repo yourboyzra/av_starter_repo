@@ -1021,8 +1021,10 @@ function renderLineItemDetails(li: AirtableRecord): string {
   const trimIncluded = f["Trim Included"] === true;
   const notes = esc(str(f, "Notes"));
 
-  // Start collapsed if any values are already set (returning visit)
-  const hasValues = !!(style || fitting || str(f, "Color") || str(f, "Type") || topDiameter || slant || baseDiameter || trimIncluded || str(f, "Notes"));
+  // Collapse only if the customer has previously saved form fields.
+  // Dimension fields (top/base/slant) are pre-populated from Shopify and must
+  // not trigger the collapsed state on a first visit.
+  const hasValues = !!(style || fitting || str(f, "Color") || str(f, "Type") || trimIncluded || str(f, "Notes"));
 
   const summaryParts: string[] = [];
   if (style) summaryParts.push(style);
