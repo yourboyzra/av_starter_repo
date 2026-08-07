@@ -26,10 +26,12 @@ export async function fetchAndWriteRates(shipmentRecordId: string): Promise<{ co
   });
   if (stale.length) await airtable.destroy("Rates", stale.map((r) => r.id));
 
-  if (!rates.length) return { count: 0 };
-
   const toCreate = rates
-    .filter((r) => !r.error_messages?.length)
+    .filter((r) => {
+      if (r.error_messages?.length) return false;
+      const svc = (r.service_type ?? "").toLowerCase();
+      return svc.includes("ground") || svc.includes("home delivery");
+    })
     .map((r) => ({
       fields: {
         Rate: `${r.carrier_friendly_name} — ${r.service_type}`,
@@ -44,8 +46,13 @@ export async function fetchAndWriteRates(shipmentRecordId: string): Promise<{ co
       },
     }));
 
-  if (!toCreate.length) return { count: 0 };
+  if (!toCreate.length) {
+    await airtable.update("Shipments", [{ id: shipmentRecordId, fields: { "No Rates": true } }]);
+    return { count: 0 };
+  }
 
+  // Clear the No Rates flag if rates are available this time
+  await airtable.update("Shipments", [{ id: shipmentRecordId, fields: { "No Rates": false } }]);
   await airtable.create("Rates", toCreate);
   return { count: toCreate.length };
 }
