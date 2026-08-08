@@ -120,6 +120,12 @@ app.post("/jobs/outbound", async (c) => {
   return c.json({ ok: true, ...result });
 });
 
+app.get("/ip", async (c) => {
+  const res = await fetch("https://api.ipify.org?format=json");
+  const { ip } = await res.json() as { ip: string };
+  return c.json({ ip });
+});
+
 export default app; // Vercel picks this up via api/index.ts (hono/vercel)
 
 // Railway/local: run a real server; on Railway also run the in-process scheduler.
