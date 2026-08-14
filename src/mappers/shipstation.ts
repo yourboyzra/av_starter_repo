@@ -50,7 +50,7 @@ const COUNTRY_NAME_TO_CODE: Record<string, string> = {
 function toCountryCode(value: string): string {
   if (value.length === 2) return value.toUpperCase();
   const match = value.match(/-\s*([A-Za-z]{2})$/);
-  if (match) return match[1].toUpperCase();
+  if (match?.[1]) return match[1].toUpperCase();
   return COUNTRY_NAME_TO_CODE[value.toLowerCase()] ?? value;
 }
 
