@@ -69,15 +69,26 @@ function vendorShipFrom(fields: Fields): Record<string, unknown> | null {
 }
 
 function shipTo(fields: Fields): Record<string, unknown> {
+  // Prefer lookup values from a linked Order; fall back to directly editable
+  // fields on the Shipment for vendor-entered shipments with no linked Order.
+  const str = (v: unknown) => (typeof v === "string" ? v.trim() : "");
+  const name = firstLookup(fields["Ship To Name (from Order)"]) || str(fields["Ship To Name"]);
+  const phone = firstLookup(fields["Ship To Phone (from Order)"]) || str(fields["Ship To Phone"]);
+  const line1 = firstLookup(fields["Ship To Address Line 1 (from Order)"]) || str(fields["Ship To Address Line 1"]);
+  const line2 = firstLookup(fields["Ship To Address Line 2 (from Order)"]) || str(fields["Ship To Address Line 2"]);
+  const city = firstLookup(fields["Ship To City (from Order)"]) || str(fields["Ship To City"]);
+  const state = firstLookup(fields["Ship To State (from Order)"]) || str(fields["Ship To State"]);
+  const zip = firstLookup(fields["Ship To Zip (from Order)"]) || str(fields["Ship To Zip"]);
+  const country = firstLookup(fields["Ship To Country (from Order)"]) || str(fields["Ship To Country"]);
   return {
-    name: firstLookup(fields["Ship To Name (from Order)"]),
-    phone: firstLookup(fields["Ship To Phone (from Order)"]),
-    address_line1: firstLookup(fields["Ship To Address Line 1 (from Order)"]),
-    address_line2: firstLookup(fields["Ship To Address Line 2 (from Order)"]),
-    city_locality: firstLookup(fields["Ship To City (from Order)"]),
-    state_province: firstLookup(fields["Ship To State (from Order)"]),
-    postal_code: firstLookup(fields["Ship To Zip (from Order)"]),
-    country_code: toCountryCode(firstLookup(fields["Ship To Country (from Order)"])),
+    name,
+    phone,
+    address_line1: line1,
+    address_line2: line2,
+    city_locality: city,
+    state_province: state,
+    postal_code: zip,
+    country_code: toCountryCode(country),
     address_residential_indicator: "unknown",
   };
 }

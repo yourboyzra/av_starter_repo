@@ -150,7 +150,7 @@ function renderPage(title: string, body: string, script = ""): string {
 </head>
 <body>
   <div class="page-header">
-    <img src="/public/logo.png" alt="Lux Fine Lampshades">
+    <img src="/public/logo.avif" alt="Lux Fine Lampshades">
   </div>
   <hr class="page-header-divider">
   <div class="container">
