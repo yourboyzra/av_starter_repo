@@ -72,6 +72,18 @@ function vendorShipFrom(fields: Fields): Record<string, unknown> | null {
 }
 
 function shipTo(fields: Fields): Record<string, unknown> {
+  if (fields["Leg"] === "Vendor to Lux") {
+    return {
+      name: "Lux Lampshades",
+      address_line1: "1003 B Louise Avenue",
+      city_locality: "Charlotte",
+      state_province: "NC",
+      postal_code: "28205",
+      country_code: "US",
+      address_residential_indicator: "unknown",
+    };
+  }
+
   // Prefer lookup values from a linked Order; fall back to directly editable
   // fields on the Shipment for vendor-entered shipments with no linked Order.
   const str = (v: unknown) => (typeof v === "string" ? v.trim() : "");
