@@ -45,9 +45,12 @@ const COUNTRY_NAME_TO_CODE: Record<string, string> = {
   "mexico": "MX", "japan": "JP", "china": "CN", "italy": "IT", "spain": "ES",
 };
 
-/** Normalize full country names ("United States") to ISO 2-letter codes ("US"). */
+/** Normalize country values to ISO 2-letter codes ("US").
+ * Handles: bare codes ("US"), "Name - XX" single-select format, full names. */
 function toCountryCode(value: string): string {
   if (value.length === 2) return value.toUpperCase();
+  const match = value.match(/-\s*([A-Za-z]{2})$/);
+  if (match) return match[1].toUpperCase();
   return COUNTRY_NAME_TO_CODE[value.toLowerCase()] ?? value;
 }
 
