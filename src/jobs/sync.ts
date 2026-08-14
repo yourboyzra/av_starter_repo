@@ -1,6 +1,6 @@
 import { registry } from "../connectors/registry.js";
 import { runReconciliation } from "../sync/engine.js";
-import { airtable, type Fields } from "../lib/airtable.js";
+import { airtable, fEscape, type Fields } from "../lib/airtable.js";
 
 /**
  * Pattern B: scheduled reconciliation across all registered providers.
@@ -49,7 +49,7 @@ async function linkLineItemsToOrders(): Promise<number> {
   ];
 
   const orderMap = new Map<string, string>(); // shopify order id (string) -> airtable record id
-  const orderFilter = `OR(${uniqueShopifyOrderIds.map((id) => `{Shopify Order ID} = ${Number(id)}`).join(",")})`;
+  const orderFilter = `OR(${uniqueShopifyOrderIds.map((id) => `{Shopify Order ID} = '${fEscape(id)}'`).join(",")})`;
   const matchedOrders = await airtable.list("Orders", { filterByFormula: orderFilter });
   for (const order of matchedOrders) {
     const shopifyId = String(order.fields["Shopify Order ID"] ?? "");
