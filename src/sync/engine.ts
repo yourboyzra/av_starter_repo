@@ -60,6 +60,12 @@ export async function processInbound(
       }
     }
 
+    // noCreate: skip external records that have no matching Airtable record.
+    if (!existing && spec.noCreate) {
+      skipped++;
+      continue;
+    }
+
     const mapped = spec.mapIn(rec);
 
     // Content guard

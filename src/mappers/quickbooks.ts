@@ -91,6 +91,7 @@ export const quickbooksSpecs: ProviderSpecs = {
     syncedAtField: "QB Synced At",
     statusField: "QB Sync Status",
     errorField: "QB Sync Error",
+    noCreate: true,
 
     // Inbound: QB PO -> AT Shipments — write back PO number and status.
     mapIn(rec: ExternalRecord): Fields {

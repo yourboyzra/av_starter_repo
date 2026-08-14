@@ -62,6 +62,8 @@ export interface EntitySpec {
   syncedAtField: string; // "{Provider} Synced At"
   statusField?: string; // "Sync Status": Synced / Pending / Error / Conflict
   errorField?: string; // "Sync Error" — failures visible in the base
+  /** When true, inbound sync only updates existing records — never creates new ones. */
+  noCreate?: boolean;
   /** Inbound: normalized external record -> Airtable fields (must include idField). */
   mapIn(rec: ExternalRecord): Fields;
   /** Outbound: Airtable fields -> provider payload. Omit if entity is inbound-only. */
