@@ -87,7 +87,12 @@ app.post("/jobs/shipstation/rates", async (c) => {
   if (!jobAuthorized(c)) return c.json({ error: "unauthorized" }, 401);
   const body = await c.req.json<{ shipmentRecordId?: string }>();
   if (!body.shipmentRecordId) return c.json({ error: "shipmentRecordId is required" }, 400);
-  return c.json({ ok: true, ...(await fetchAndWriteRates(body.shipmentRecordId)) });
+  try {
+    return c.json({ ok: true, ...(await fetchAndWriteRates(body.shipmentRecordId)) });
+  } catch (err) {
+    console.error("[rates] failed for", body.shipmentRecordId, err);
+    return c.json({ error: String(err) }, 500);
+  }
 });
 
 app.post("/jobs/shipstation/create-label", async (c) => {

@@ -103,6 +103,7 @@ export async function getShipmentRates(shipmentSpec: Record<string, unknown>): P
   const carrierIds = (fenchelCarriers.length ? fenchelCarriers : allCarriers).map((c) => c.carrier_id);
   if (fenchelCarriers.length === 0) console.warn("[rates] No Fenchel carrier found — returning rates for all carriers");
 
+  console.log("[rates] payload:", JSON.stringify({ rate_options: { carrier_ids: carrierIds }, shipment: shipmentSpec }, null, 2));
   const result = await shipstationRequest<{ rate_response: { rates: ShipStationRate[] } }>("POST", "/v2/rates", {
     rate_options: { carrier_ids: carrierIds },
     shipment: shipmentSpec,
