@@ -1040,6 +1040,7 @@ function renderLineItemDetails(li: AirtableRecord): string {
     "Softback - Other",
     "Hardback - Rolled Edge",
     "Hardback - Self Trim",
+    "Other - Please Add Notes",
   ].map((o) => `<option value="${esc(o)}"${style === o ? " selected" : ""}>${esc(o)}</option>`).join("");
 
   const fittingOpts = [
@@ -1048,6 +1049,7 @@ function renderLineItemDetails(li: AirtableRecord): string {
     "Spider - Other",
     "Bulb Clip",
     "Candle Clip",
+    "Other - Please Add Notes",
   ].map((o) => `<option value="${esc(o)}"${fitting === o ? " selected" : ""}>${esc(o)}</option>`).join("");
 
   return `<div class="li-details" id="li-details-${li.id}">
