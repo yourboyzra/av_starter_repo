@@ -1,5 +1,4 @@
 import type { Fields } from "../lib/airtable.js";
-import { requireEnv } from "../config.js";
 import type { ExternalRecord, ProviderSpecs } from "../connectors/types.js";
 import type { ShipStationShipment } from "../connectors/shipstation.js";
 import { firstLookup } from "./utils.js";
@@ -54,34 +53,19 @@ function toCountryCode(value: string): string {
   return COUNTRY_NAME_TO_CODE[value.toLowerCase()] ?? value;
 }
 
-function vendorShipFrom(fields: Fields): Record<string, unknown> | null {
-  const addressLine1 = firstLookup(fields["Address Line 1 (from Vendor)"]);
-  if (!addressLine1) return null; // no vendor linked, or vendor has no address on file
-
-  return {
-    name: firstLookup(fields["Name (from Vendor)"]),
-    phone: firstLookup(fields["Phone (from Vendor)"]),
-    address_line1: addressLine1,
-    address_line2: firstLookup(fields["Address Line 2 (from Vendor)"]),
-    city_locality: firstLookup(fields["City (from Vendor)"]),
-    state_province: firstLookup(fields["State (from Vendor)"]),
-    postal_code: firstLookup(fields["Zip (from Vendor)"]),
-    country_code: toCountryCode(firstLookup(fields["Country (from Vendor)"])),
-    address_residential_indicator: "unknown",
-  };
-}
+const LUX_ADDRESS = {
+  name: "Lux Lampshades",
+  address_line1: "1003 B Louise Avenue",
+  city_locality: "Charlotte",
+  state_province: "NC",
+  postal_code: "28205",
+  country_code: "US",
+  address_residential_indicator: "unknown",
+};
 
 function shipTo(fields: Fields): Record<string, unknown> {
   if (fields["Leg"] === "Vendor to Lux") {
-    return {
-      name: "Lux Lampshades",
-      address_line1: "1003 B Louise Avenue",
-      city_locality: "Charlotte",
-      state_province: "NC",
-      postal_code: "28205",
-      country_code: "US",
-      address_residential_indicator: "unknown",
-    };
+    return LUX_ADDRESS;
   }
 
   // Prefer lookup values from a linked Order; fall back to directly editable
@@ -128,7 +112,6 @@ export const shipstationSpecs: ProviderSpecs = {
 
     // Outbound: AT owns operational shipping data (ship-to, ship-from, weight).
     mapOut(fields: Fields, airtableRecordId: string): Record<string, unknown> {
-      const vendorAddr = vendorShipFrom(fields);
       const weightValue = Number(fields["Weight"] ?? 0);
       const weightUnit = typeof fields["Weight Unit"] === "string" ? (fields["Weight Unit"] as string) : "pound";
 
@@ -141,7 +124,7 @@ export const shipstationSpecs: ProviderSpecs = {
       return {
         external_shipment_id: String(fields["Shipment Name"] ?? airtableRecordId),
         ship_to: shipTo(fields),
-        ...(vendorAddr ? { ship_from: vendorAddr } : { warehouse_id: requireEnv("SHIPSTATION_WAREHOUSE_ID") }),
+        ship_from: LUX_ADDRESS,
         packages: [
           {
             weight: { value: weightValue, unit: weightUnit },
