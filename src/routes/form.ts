@@ -426,9 +426,21 @@ function renderPage(title: string, body: string, inlineScript = ""): string {
     .li-spec-save-btn:disabled { background: #A09890; cursor: default; }
     .li-spec-cancel-btn { padding: 8px 14px; background: none; border: 1.5px solid #C8C2BA; border-radius: 7px; font-size: 0.88rem; color: #6B625A; cursor: pointer; }
     .li-spec-cancel-btn:hover { border-color: #6B625A; }
+    .trim-tip-btn { background: none; border: none; padding: 0; cursor: pointer; color: #9A908A; display: inline-flex; align-items: center; position: relative; }
+    .trim-tip-btn:hover { color: #5B6B3A; }
+    .trim-tip-btn svg { width: 14px; height: 14px; display: block; }
+    .trim-tip-btn::after { content: 'Click for trim calculation'; position: absolute; bottom: calc(100% + 7px); left: 50%; transform: translateX(-50%); background: #1C1410; color: #fff; font-size: 0.72rem; font-weight: 500; padding: 5px 9px; border-radius: 5px; white-space: nowrap; opacity: 0; pointer-events: none; transition: opacity 0.12s; text-transform: none; letter-spacing: 0; z-index: 10; }
+    .trim-tip-btn::before { content: ''; position: absolute; bottom: calc(100% + 2px); left: 50%; transform: translateX(-50%); border: 5px solid transparent; border-top-color: #1C1410; opacity: 0; pointer-events: none; transition: opacity 0.12s; z-index: 10; }
+    .trim-tip-btn:hover::after, .trim-tip-btn:hover::before { opacity: 1; }
+    .trim-tip-panel { border-left: 3px solid #5B6B3A; background: #FAF8F5; border-radius: 0 7px 7px 0; padding: 11px 13px; margin: 0 0 14px; font-size: 0.82rem; line-height: 1.55; color: #4A4139; }
+    .trim-tip-heading { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: #5B6B3A; margin-bottom: 6px; }
+    .trim-tip-formula { font-family: 'SFMono-Regular', Consolas, 'Courier New', monospace; background: #EDE8E0; border-radius: 5px; padding: 6px 10px; margin: 7px 0; font-size: 0.79rem; color: #2E2520; }
+    .trim-tip-note { margin-top: 7px; font-size: 0.78rem; color: #5B6B3A; font-weight: 600; }
     .show-qr-btn { display: inline-flex; align-items: center; gap: 5px; font-size: 0.82rem; font-weight: 600; color: #6B625A; background: none; border: 1.5px solid #C8C2BA; border-radius: 6px; padding: 4px 10px; cursor: pointer; white-space: nowrap; }
     .show-qr-btn:hover { border-color: #6B625A; color: #1C1410; }
     .show-qr-btn svg { width: 13px; height: 13px; flex-shrink: 0; }
+    .qr-badge { display: inline-flex; align-items: center; gap: 4px; background: #E8EDE0; color: #3E4A28; font-size: 0.7rem; font-weight: 700; padding: 3px 8px 3px 6px; border-radius: 20px; white-space: nowrap; flex-shrink: 0; margin-left: auto; letter-spacing: 0.02em; }
+    .qr-badge svg { width: 11px; height: 11px; flex-shrink: 0; }
     .existing-mat-qr { margin-top: 12px; }
   </style>
 </head>
@@ -513,6 +525,10 @@ function renderPage(title: string, body: string, inlineScript = ""): string {
       if (fields) fields.style.display = 'block';
       if (summary) summary.style.display = 'none';
       if (editBtn) editBtn.style.display = 'none';
+    }
+    function toggleTrimTip(liId) {
+      var panel = document.getElementById('trim-tip-' + liId);
+      if (panel) panel.style.display = panel.style.display === 'none' ? '' : 'none';
     }
     function toggleTrimNotes(select, liId) {
       var notesField = document.getElementById('trim-notes-field-' + liId);
@@ -844,6 +860,7 @@ function materialSectionHtml(
       <label class="radio-opt">
         <input type="radio" name="${prefix}_shippingSource" value="Shipping From Me" onchange="toggleShipping(this)">
         I'll ship it to Lux Lampshades myself
+        <span class="qr-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9V6a3 3 0 0 1 3-3h3M3 15v3a3 3 0 0 0 3 3h3M15 3h3a3 3 0 0 1 3 3v3M15 21h3a3 3 0 0 0 3-3v-3"/><rect x="7" y="7" width="4" height="4" rx="0.5"/><rect x="13" y="7" width="4" height="4" rx="0.5"/><rect x="7" y="13" width="4" height="4" rx="0.5"/></svg>QR code included</span>
       </label>
       <label class="radio-opt">
         <input type="radio" name="${prefix}_shippingSource" value="Shipping From Vendor" onchange="toggleShipping(this)">
@@ -856,7 +873,7 @@ function materialSectionHtml(
     <div class="qr-block" data-qr-name="${esc(liName)}">
       <img src="${qrDataUri}" alt="QR code" width="80" height="80">
       <div class="qr-block-text">
-        <p>Print this QR code and include it in your shipping box so our team can identify your material on arrival.</p>
+        <p>Your QR code is ready. Print or download it and drop it in your shipping box &mdash; our team will scan it on arrival to match your material to your order.</p>
         <div class="qr-actions">
           <a href="${qrDataUri}" download="${dlName}" class="download-btn">
             <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
@@ -1107,12 +1124,22 @@ function renderLineItemDetails(li: AirtableRecord): string {
       </div>
     </div>
     <div class="field">
-      <label class="field-label">Trim Included</label>
-      <select name="li_trimIncluded" class="li-select" onchange="toggleTrimNotes(this, '${li.id}')">
+      <div style="display:flex;align-items:center;gap:5px;margin-bottom:7px;">
+        <label class="field-label" for="trim-included-${li.id}" style="margin-bottom:0;">Trim Included</label>
+        <button type="button" class="trim-tip-btn" onclick="toggleTrimTip('${li.id}')" aria-label="Click for trim calculation"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg></button>
+      </div>
+      <select id="trim-included-${li.id}" name="li_trimIncluded" class="li-select" onchange="toggleTrimNotes(this, '${li.id}')">
         <option value="">-- Select --</option>
         <option value="yes"${trimIncluded ? " selected" : ""}>Yes</option>
         <option value="no"${!trimIncluded && hasValues ? " selected" : ""}>No</option>
       </select>
+    </div>
+    <div class="trim-tip-panel" id="trim-tip-${li.id}" style="display:none">
+      <div class="trim-tip-heading">How to Calculate Trim</div>
+      Add the top and bottom ring circumferences, multiply by 3.2, then divide by 36 to get the yards of trim needed.
+      <div class="trim-tip-formula">(Top ring + Bottom ring) &times; 3.2 &divide; 36 = yards of trim</div>
+      <strong>Example:</strong> 8&Prime; top + 16&Prime; bottom = 24&Prime; &times; 3.2 = 76.8&Prime; &divide; 36 = 2.13 yards &rarr; round up to <strong>2.25 yards per shade</strong>
+      <div class="trim-tip-note">Always round up to the nearest &frac14; yard &mdash; we require a little extra for a clean, seamless finish.</div>
     </div>
     <div class="field" id="trim-notes-field-${li.id}" style="${trimIncluded ? "" : "display:none"}">
       <label class="field-label">Trim Notes</label>
