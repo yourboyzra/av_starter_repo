@@ -25,8 +25,14 @@ form.get("/:orderId", async (c) => {
   const allLineItems = lineItemIds?.length
     ? await airtable.findByIds("Line Items", lineItemIds)
     : [];
+  const EXCLUDED_ITEMS = new Set([
+    "free returns and exchanges",
+    "burlap swatch options",
+    "rush production",
+    "expedited services",
+  ]);
   const lineItems = allLineItems.filter((li) =>
-    String(li.fields["Line Item"] ?? "").toLowerCase().includes("custom")
+    !EXCLUDED_ITEMS.has(String(li.fields["Line Item"] ?? "").toLowerCase())
   );
 
   // Fetch existing materials linked to these line items
@@ -1215,6 +1221,7 @@ function renderForm(
   const orderId = order.id;
 
   const hasItems = lineItems.length > 0;
+  const isDeleted = order.fields["Delete"] === true;
 
   const itemsHtml = hasItems
     ? lineItems.map((li) => {
@@ -1222,12 +1229,14 @@ function renderForm(
         const existingMats = matIds.map((id) => materialsById[id]).filter(Boolean) as AirtableRecord[];
         return renderLineItemCard(li, qrCodes[li.id] ?? "", existingMats);
       }).join("\n")
-    : `<div class="empty-state">
+    : isDeleted
+    ? `<div class="empty-state">
   <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#aaa" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
   <p class="empty-state-title">No custom items found for this order</p>
   <p class="empty-state-body">If you're expecting to see items here, please reach out and we'll get it sorted out.</p>
   <a href="mailto:operations@luxlampshades.com" class="empty-state-link">operations@luxlampshades.com</a>
-</div>`;
+</div>`
+    : "";
 
   const initScript = `var FORM_URL = '/form/${orderId}'; var ORDER_ID = '${orderId}';`;
 
