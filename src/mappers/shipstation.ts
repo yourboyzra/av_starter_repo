@@ -55,6 +55,7 @@ function toCountryCode(value: string): string {
 
 const LUX_ADDRESS = {
   name: "Lux Lampshades",
+  phone: "7043766213",
   address_line1: "1003 B Louise Avenue",
   city_locality: "Charlotte",
   state_province: "NC",
