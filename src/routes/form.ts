@@ -219,7 +219,8 @@ form.post("/:orderId/item/:lineItemId", async (c) => {
     const liTopDiameterStr = String(body["li_topDiameter"] ?? "").trim();
     const liSlantStr = String(body["li_slant"] ?? "").trim();
     const liBaseDiameterStr = String(body["li_baseDiameter"] ?? "").trim();
-    const liTrimIncluded = body["li_trimIncluded"] === "on";
+    const liTrimIncluded = body["li_trimIncluded"] === "yes";
+    const liTrimNotes = String(body["li_trimNotes"] ?? "").trim();
     const liNotes = String(body["li_notes"] ?? "").trim();
     const liDetailFields: Fields = { "Trim Included": liTrimIncluded };
     if (liStyle) liDetailFields["Style"] = liStyle;
@@ -229,6 +230,7 @@ form.post("/:orderId/item/:lineItemId", async (c) => {
     if (liTopDiameterStr) liDetailFields["Top Diameter (in)"] = Number(liTopDiameterStr);
     if (liSlantStr) liDetailFields["Slant (in)"] = Number(liSlantStr);
     if (liBaseDiameterStr) liDetailFields["Base Diameter (in)"] = Number(liBaseDiameterStr);
+    if (liTrimNotes) liDetailFields["Trim Notes"] = liTrimNotes;
     if (liNotes) liDetailFields["Notes"] = liNotes;
     try {
       await airtable.update("Line Items", [{ id: lineItemId, fields: liDetailFields }]);
@@ -498,7 +500,7 @@ function renderPage(title: string, body: string, inlineScript = ""): string {
       if (fittingEl && fittingEl.value) parts.push(fittingEl.value);
       if (colorEl && colorEl.value) parts.push(colorEl.value);
       if (typeEl && typeEl.value) parts.push(typeEl.value);
-      if (trimEl && trimEl.checked) parts.push('Trim included');
+      if (trimEl && trimEl.value === 'yes') parts.push('Trim included');
       if (summary) { summary.textContent = parts.length ? parts.join(' · ') : 'No details provided yet'; summary.style.display = 'block'; }
       if (fields) fields.style.display = 'none';
       if (editBtn) editBtn.style.display = '';
@@ -511,6 +513,10 @@ function renderPage(title: string, body: string, inlineScript = ""): string {
       if (fields) fields.style.display = 'block';
       if (summary) summary.style.display = 'none';
       if (editBtn) editBtn.style.display = 'none';
+    }
+    function toggleTrimNotes(select, liId) {
+      var notesField = document.getElementById('trim-notes-field-' + liId);
+      if (notesField) notesField.style.display = select.value === 'yes' ? '' : 'none';
     }
     function cancelLiDetails(liId) {
       var fields = document.getElementById('li-details-fields-' + liId);
@@ -1019,12 +1025,13 @@ function renderLineItemDetails(li: AirtableRecord): string {
   const slant = f["Slant (in)"] != null ? String(f["Slant (in)"]) : "";
   const baseDiameter = f["Base Diameter (in)"] != null ? String(f["Base Diameter (in)"]) : "";
   const trimIncluded = f["Trim Included"] === true;
+  const trimNotes = esc(str(f, "Trim Notes"));
   const notes = esc(str(f, "Notes"));
 
   // Collapse only if the customer has previously saved form fields.
   // Dimension fields (top/base/slant) are pre-populated from Shopify and must
   // not trigger the collapsed state on a first visit.
-  const hasValues = !!(style || fitting || str(f, "Color") || str(f, "Type") || trimIncluded || str(f, "Notes"));
+  const hasValues = !!(style || fitting || str(f, "Color") || str(f, "Type") || trimIncluded || str(f, "Notes") || str(f, "Trim Notes"));
 
   const summaryParts: string[] = [];
   if (style) summaryParts.push(style);
@@ -1100,10 +1107,16 @@ function renderLineItemDetails(li: AirtableRecord): string {
       </div>
     </div>
     <div class="field">
-      <label class="checkbox-opt">
-        <input type="checkbox" name="li_trimIncluded"${trimIncluded ? " checked" : ""}>
-        Trim included
-      </label>
+      <label class="field-label">Trim Included</label>
+      <select name="li_trimIncluded" class="li-select" onchange="toggleTrimNotes(this, '${li.id}')">
+        <option value="">-- Select --</option>
+        <option value="yes"${trimIncluded ? " selected" : ""}>Yes</option>
+        <option value="no"${!trimIncluded && hasValues ? " selected" : ""}>No</option>
+      </select>
+    </div>
+    <div class="field" id="trim-notes-field-${li.id}" style="${trimIncluded ? "" : "display:none"}">
+      <label class="field-label">Trim Notes</label>
+      <textarea name="li_trimNotes" placeholder="Please describe the trim" style="min-height:56px">${trimNotes}</textarea>
     </div>
     <div class="field">
       <label class="field-label">Notes</label>
@@ -1186,7 +1199,7 @@ function renderForm(
   <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#aaa" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
   <p class="empty-state-title">No custom items found for this order</p>
   <p class="empty-state-body">If you're expecting to see items here, please reach out and we'll get it sorted out.</p>
-  <a href="mailto:support@luxlampshades.com" class="empty-state-link">support@luxlampshades.com</a>
+  <a href="mailto:operations@luxlampshades.com" class="empty-state-link">operations@luxlampshades.com</a>
 </div>`;
 
   const initScript = `var FORM_URL = '/form/${orderId}'; var ORDER_ID = '${orderId}';`;
