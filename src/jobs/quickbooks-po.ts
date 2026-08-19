@@ -79,7 +79,7 @@ export async function createPO(shipmentRecordId: string): Promise<{ id: string; 
         Amount: poAmount,
         Description: combinedDescription,
         AccountBasedExpenseLineDetail: {
-          AccountRef: { value: "80" },
+          AccountRef: { value: "5" },
         },
       },
     ];
