@@ -2,6 +2,7 @@ import { airtable } from "../lib/airtable.js";
 import { quickbooksSpecs } from "../mappers/quickbooks.js";
 import { createOrUpdatePurchaseOrder, fetchPoPdf } from "../connectors/quickbooks.js";
 import { r2Configured, uploadToR2 } from "../lib/r2.js";
+import { firstLookup } from "../mappers/utils.js";
 
 /**
  * Create or update a QuickBooks PurchaseOrder from a Shipments record, writing
@@ -62,6 +63,11 @@ export async function createPO(shipmentRecordId: string): Promise<{ id: string; 
     ? String(orderRecord.fields["Customer Name"] ?? "")
     : String(record.fields["Ship To Name"] ?? "");
 
+  const orderNumber = String(orderRecord?.fields["Order Number"] ?? "").replace(/^#/, "");
+  const vendorName = firstLookup(record.fields["Name (from Vendor)"]) ?? "";
+  const generatedDocNumber = `${orderNumber}${vendorName ? `-${vendorName}` : ""}`.slice(0, 21);
+  if (generatedDocNumber) basePayload["DocNumber"] = generatedDocNumber;
+
   // Override Memo to include customer name
   if (customerName) {
     basePayload["Memo"] = [customerName, basePayload["Memo"]].filter(Boolean).join(" — ");
@@ -112,7 +118,7 @@ export async function createPO(shipmentRecordId: string): Promise<{ id: string; 
         id: shipmentRecordId,
         fields: {
           "QB PO ID": id,
-          ...(docNumber ? { "PO Number": docNumber } : {}),
+          "PO Number": docNumber || generatedDocNumber || id,
           "QB Synced At": new Date().toISOString(),
           "QB Sync Status": "Synced",
           "QB Sync Error": "",
