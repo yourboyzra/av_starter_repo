@@ -58,10 +58,25 @@ export async function createPO(shipmentRecordId: string): Promise<{ id: string; 
 
   const basePayload = spec.mapOut(record.fields, record.id) as Record<string, unknown>;
 
+  const customerName = orderRecord
+    ? String(orderRecord.fields["Customer Name"] ?? "")
+    : String(record.fields["Ship To Name"] ?? "");
+
   // Override Memo to include customer name
-  const customerName = orderRecord ? String(orderRecord.fields["Customer Name"] ?? "") : "";
   if (customerName) {
     basePayload["Memo"] = [customerName, basePayload["Memo"]].filter(Boolean).join(" — ");
+  }
+
+  // Prepend customer/ship-to name to ShipAddr so it appears on the printed PO.
+  // QB ShipAddr has no separate name field — name goes in Line1, address shifts down.
+  if (customerName && basePayload["ShipAddr"]) {
+    const addr = basePayload["ShipAddr"] as Record<string, unknown>;
+    basePayload["ShipAddr"] = {
+      ...addr,
+      Line1: customerName,
+      Line2: addr["Line1"] ?? "",
+      Line3: addr["Line2"] ?? "",
+    };
   }
 
   // Single line using PO Amount from the Shipment record.
