@@ -18,26 +18,17 @@ import { firstLookup } from "../mappers/utils.js";
 function buildLineDescription(fields: Record<string, unknown>): string {
   const name = String(fields["Line Item"] ?? "");
   const variant = String(fields["Variant / Description"] ?? "");
-  const qty = fields["Quantity"] != null ? String(fields["Quantity"]) : "";
   const style = String(fields["Style"] ?? "");
   const fitting = String(fields["Fitting"] ?? "");
   const color = String(fields["Color"] ?? "");
   const type = String(fields["Type"] ?? "");
-  const files = Array.isArray(fields["Custom Files"])
-    ? (fields["Custom Files"] as Array<{ filename?: string }>).map((f) => f.filename).filter(Boolean)
-    : [];
 
+  // Qty omitted — QB shows it in the Quantity column for ItemBasedExpenseLineDetail.
+  // File names omitted — not meaningful on a printed PO.
   const title = [name, variant].filter(Boolean).join(" — ");
-  const details = [
-    qty ? `Qty: ${qty}` : "",
-    style,
-    fitting,
-    color,
-    type,
-  ].filter(Boolean).join(" | ");
-  const filesNote = files.length ? `Files: ${files.join(", ")}` : "";
+  const details = [style, fitting, color, type].filter(Boolean).join(" | ");
 
-  return [title, details, filesNote].filter(Boolean).join("\n");
+  return [title, details].filter(Boolean).join("\n");
 }
 
 export async function createPO(shipmentRecordId: string): Promise<{ id: string; docNumber?: string }> {
@@ -65,8 +56,11 @@ export async function createPO(shipmentRecordId: string): Promise<{ id: string; 
 
   const orderNumber = String(orderRecord?.fields["Order Number"] ?? "").replace(/^#/, "");
   const vendorName = firstLookup(record.fields["Name (from Vendor)"]) ?? "";
-  const generatedDocNumber = `${orderNumber}${vendorName ? `-${vendorName}` : ""}`.slice(0, 21);
-  if (generatedDocNumber) basePayload["DocNumber"] = generatedDocNumber;
+  const docNumberBase = `${orderNumber}${vendorName ? `-${vendorName}` : ""}`;
+  // Always override — never let a stale "PO Number" from a previous run bleed
+  // through the mapper. Fall back to the Airtable record ID if the shipment
+  // has no linked order yet (manually-created shipments).
+  basePayload["DocNumber"] = (docNumberBase || shipmentRecordId).slice(0, 21);
 
   // Override Memo to include customer name
   if (customerName) {
@@ -102,6 +96,7 @@ export async function createPO(shipmentRecordId: string): Promise<{ id: string; 
         Description: buildLineDescription(f),
         ItemBasedExpenseLineDetail: {
           ItemRef: { value: "1561", name: "Custom Shades" },
+          AccountRef: { value: "99" },
           Qty: qty,
           UnitPrice: unitPrice,
         },
@@ -114,6 +109,7 @@ export async function createPO(shipmentRecordId: string): Promise<{ id: string; 
         Amount: poAmount,
         ItemBasedExpenseLineDetail: {
           ItemRef: { value: "1561", name: "Custom Shades" },
+          AccountRef: { value: "99" },
           Qty: 1,
           UnitPrice: poAmount,
         },
@@ -133,7 +129,7 @@ export async function createPO(shipmentRecordId: string): Promise<{ id: string; 
         id: shipmentRecordId,
         fields: {
           "QB PO ID": id,
-          "PO Number": docNumber || generatedDocNumber || id,
+          "PO Number": docNumber || String(basePayload["DocNumber"] ?? "") || id,
           "QB Synced At": new Date().toISOString(),
           "QB Sync Status": "Synced",
           "QB Sync Error": "",
