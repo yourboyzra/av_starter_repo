@@ -163,7 +163,7 @@ export const quickbooksSpecs: ProviderSpecs = {
             Amount: poAmount,
             Description: shipmentName,
             AccountBasedExpenseLineDetail: {
-              AccountRef: { value: "7" },
+              AccountRef: { value: "99" },
             },
           },
         ],
