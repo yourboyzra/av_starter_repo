@@ -85,22 +85,37 @@ export async function createPO(shipmentRecordId: string): Promise<{ id: string; 
     };
   }
 
-  // Single line using PO Amount from the Shipment record.
-  // Descriptions from all linked line items are combined for detail,
-  // but individual line totals are not sent to QB.
+  // One QB line per Airtable line item using ItemBasedExpenseLineDetail so the
+  // PO shows Product/Service, Description, Quantity, and Rate columns.
+  // Falls back to a single placeholder line when no line items are linked
+  // (manual shipments) so the client can fill in detail directly in QB.
   const poAmount = Number(record.fields["PO Amount"] ?? 0);
   if (lineItems.length > 0) {
-    const combinedDescription = lineItems
-      .map((li) => buildLineDescription(li.fields as Record<string, unknown>))
-      .filter(Boolean)
-      .join("\n\n");
+    basePayload["Line"] = lineItems.map((li) => {
+      const f = li.fields as Record<string, unknown>;
+      const qty = Number(f["Quantity"] ?? 1);
+      const unitPrice = Number(f["Unit Price"] ?? 0);
+      const amount = Number(f["Line Total"] ?? qty * unitPrice);
+      return {
+        DetailType: "ItemBasedExpenseLineDetail",
+        Amount: amount,
+        Description: buildLineDescription(f),
+        ItemBasedExpenseLineDetail: {
+          ItemRef: { value: "1561", name: "Custom Shades" },
+          Qty: qty,
+          UnitPrice: unitPrice,
+        },
+      };
+    });
+  } else {
     basePayload["Line"] = [
       {
-        DetailType: "AccountBasedExpenseLineDetail",
+        DetailType: "ItemBasedExpenseLineDetail",
         Amount: poAmount,
-        Description: combinedDescription,
-        AccountBasedExpenseLineDetail: {
-          AccountRef: { value: "99" },
+        ItemBasedExpenseLineDetail: {
+          ItemRef: { value: "1561", name: "Custom Shades" },
+          Qty: 1,
+          UnitPrice: poAmount,
         },
       },
     ];

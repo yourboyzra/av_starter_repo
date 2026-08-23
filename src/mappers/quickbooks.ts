@@ -159,11 +159,13 @@ export const quickbooksSpecs: ProviderSpecs = {
         // This fallback covers the generic pushOutbound path.
         Line: [
           {
-            DetailType: "AccountBasedExpenseLineDetail",
+            DetailType: "ItemBasedExpenseLineDetail",
             Amount: poAmount,
             Description: shipmentName,
-            AccountBasedExpenseLineDetail: {
-              AccountRef: { value: "99" },
+            ItemBasedExpenseLineDetail: {
+              ItemRef: { value: "1561", name: "Custom Shades" },
+              Qty: 1,
+              UnitPrice: poAmount,
             },
           },
         ],

@@ -125,20 +125,6 @@ app.post("/jobs/outbound", async (c) => {
   return c.json({ ok: true, ...result });
 });
 
-app.get("/jobs/qb-items", async (c) => {
-  if (!jobAuthorized(c)) return c.json({ error: "unauthorized" }, 401);
-  const { getAccessToken } = await import("./lib/oauth.js");
-  const { requireEnv: re } = await import("./config.js");
-  const realmId = re("QUICKBOOKS_REALM_ID");
-  const host = process.env.QUICKBOOKS_ENVIRONMENT === "production" ? "quickbooks.api.intuit.com" : "sandbox-quickbooks.api.intuit.com";
-  const token = await getAccessToken("quickbooks", realmId);
-  const q = encodeURIComponent("SELECT Id, Name, Type, IncomeAccountRef FROM Item WHERE Type = 'Service' MAXRESULTS 50");
-  const res = await fetch(`https://${host}/v3/company/${realmId}/query?query=${q}&minorversion=65`, {
-    headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
-  });
-  return c.json(await res.json());
-});
-
 app.get("/ip", async (c) => {
   const res = await fetch("https://api.ipify.org?format=json");
   const { ip } = await res.json() as { ip: string };
