@@ -88,8 +88,8 @@ export async function createPO(shipmentRecordId: string): Promise<{ id: string; 
     basePayload["Line"] = lineItems.map((li) => {
       const f = li.fields as Record<string, unknown>;
       const qty = Number(f["Quantity"] ?? 1);
-      const unitPrice = Number(f["Unit Price"] ?? 0);
-      const amount = Number(f["Line Total"] ?? qty * unitPrice);
+      const unitPrice = Number(f["PO Price"] ?? 0);
+      const amount = qty * unitPrice;
       return {
         DetailType: "ItemBasedExpenseLineDetail",
         Amount: amount,
