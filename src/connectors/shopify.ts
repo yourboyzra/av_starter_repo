@@ -104,7 +104,7 @@ export function verifyOAuthHmac(query: Record<string, string | undefined>): bool
   return a.length === b.length && timingSafeEqual(a, b);
 }
 
-const OAUTH_SCOPES = "read_fulfillments,write_fulfillments,read_orders,write_orders,read_products";
+const OAUTH_SCOPES = "read_orders,write_orders,read_products,read_fulfillments,write_fulfillments,read_merchant_managed_fulfillment_orders,write_merchant_managed_fulfillment_orders";
 
 export function buildAuthorizeUrl(shop: string, redirectUri: string, state: string): string {
   const url = new URL(`https://${shop}/admin/oauth/authorize`);
