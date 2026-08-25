@@ -10,7 +10,6 @@ import { refreshWebhooks } from "./jobs/refresh-webhooks.js";
 import { pushShopifyFulfillments } from "./jobs/shopify-fulfillment.js";
 import { fetchAndWriteRates, purchaseLabel } from "./jobs/shipstation-rates.js";
 import { createPO } from "./jobs/quickbooks-po.js";
-import { getAccessToken } from "./lib/oauth.js";
 import { registry } from "./connectors/registry.js";
 import { pushOutbound } from "./sync/engine.js";
 
@@ -130,31 +129,6 @@ app.post("/jobs/outbound", async (c) => {
   return c.json({ ok: true, ...result });
 });
 
-// TEMP — inspect QB Preferences and a PO for StyleRef; remove after use
-app.get("/jobs/qb-styles", async (c) => {
-  if (!jobAuthorized(c)) return c.json({ error: "unauthorized" }, 401);
-  const realmId = process.env.QUICKBOOKS_REALM_ID!;
-  const host = process.env.QUICKBOOKS_ENVIRONMENT === "production"
-    ? "quickbooks.api.intuit.com"
-    : "sandbox-quickbooks.api.intuit.com";
-  const base = `https://${host}/v3/company/${realmId}`;
-  const token = await getAccessToken("quickbooks", realmId);
-  const headers = { Authorization: `Bearer ${token}`, Accept: "application/json" };
-
-  const [prefsRes, poId] = await Promise.all([
-    fetch(`${base}/preferences`, { headers }),
-    Promise.resolve(c.req.query("poId")),
-  ]);
-  const prefs = await prefsRes.json();
-
-  let po = null;
-  if (poId) {
-    const poRes = await fetch(`${base}/purchaseorder/${poId}`, { headers });
-    po = await poRes.json();
-  }
-
-  return c.json({ prefs, po });
-});
 
 app.get("/ip", async (c) => {
   const res = await fetch("https://api.ipify.org?format=json");
