@@ -1,8 +1,9 @@
 import { airtable } from "../lib/airtable.js";
 import { quickbooksSpecs } from "../mappers/quickbooks.js";
-import { createOrUpdatePurchaseOrder, fetchPoPdf } from "../connectors/quickbooks.js";
+import { createOrUpdatePurchaseOrder } from "../connectors/quickbooks.js";
 import { r2Configured, uploadToR2 } from "../lib/r2.js";
 import { firstLookup } from "../mappers/utils.js";
+import { generatePoPdf } from "../lib/po-pdf.js";
 
 /**
  * Create or update a QuickBooks PurchaseOrder from a Shipments record, writing
@@ -135,18 +136,68 @@ export async function createPO(shipmentRecordId: string): Promise<{ id: string; 
       },
     ]);
 
-    // Attach the PO PDF to the Shipment record — non-fatal if it fails.
-    // Each shipment maps to exactly one PO so we just replace the field.
+    // Generate and attach our own PDF — QB's /pdf API endpoint ignores custom
+    // form styles, so we render it ourselves with the correct column layout.
     if (r2Configured()) {
       try {
-        const pdfRes = await fetchPoPdf(id);
-        const buf = await pdfRes.arrayBuffer();
+        const shipAddr = basePayload["ShipAddr"] as Record<string, unknown> | undefined;
+        const poDocNumber = docNumber || String(basePayload["DocNumber"] ?? "") || id;
+        const pdfBuf = await generatePoPdf({
+          docNumber: poDocNumber,
+          txnDate: String(basePayload["TxnDate"] ?? new Date().toISOString().slice(0, 10)),
+          vendor: {
+            name: vendorName || "Vendor",
+            addr: {
+              line1: firstLookup(record.fields["Address Line 1 (from Vendor)"]) ?? undefined,
+              city: firstLookup(record.fields["City (from Vendor)"]) ?? undefined,
+              state: firstLookup(record.fields["State (from Vendor)"]) ?? undefined,
+              zip: firstLookup(record.fields["Zip (from Vendor)"]) ?? undefined,
+            },
+          },
+          shipTo: shipAddr ? {
+            line1: String(shipAddr["Line1"] ?? ""),
+            line2: String(shipAddr["Line2"] ?? "") || undefined,
+            line3: String(shipAddr["Line3"] ?? "") || undefined,
+            city: String(shipAddr["City"] ?? ""),
+            state: String(shipAddr["CountrySubDivisionCode"] ?? ""),
+            zip: String(shipAddr["PostalCode"] ?? ""),
+            country: String(shipAddr["Country"] ?? ""),
+          } : undefined,
+          customerName: customerName || undefined,
+          lineItems: lineItems.length > 0
+            ? lineItems.map((li) => {
+                const f = li.fields as Record<string, unknown>;
+                const qty = Number(f["Quantity"] ?? 1);
+                const rate = Number(f["PO Price"] ?? 0);
+                return {
+                  productService: "Custom Shades",
+                  description: buildLineDescription(f),
+                  qty,
+                  rate,
+                  amount: qty * rate,
+                };
+              })
+            : [{
+                productService: "Custom Shades",
+                description: "",
+                qty: 1,
+                rate: poAmount,
+                amount: poAmount,
+              }],
+          totalAmt: lineItems.length > 0
+            ? lineItems.reduce((sum, li) => {
+                const f = li.fields as Record<string, unknown>;
+                return sum + Number(f["Quantity"] ?? 1) * Number(f["PO Price"] ?? 0);
+              }, 0)
+            : poAmount,
+        });
         const key = `po-pdfs/${shipmentRecordId}/${Date.now()}.pdf`;
-        const url = await uploadToR2(key, buf, "application/pdf");
-        const filename = `PO-${docNumber || id}.pdf`;
+        const ab = pdfBuf.buffer.slice(pdfBuf.byteOffset, pdfBuf.byteOffset + pdfBuf.byteLength) as ArrayBuffer;
+        const url = await uploadToR2(key, ab, "application/pdf");
+        const filename = `PO-${poDocNumber}.pdf`;
         await airtable.update("Shipments", [{ id: shipmentRecordId, fields: { "QB PO PDF": [{ url, filename }] } }]);
       } catch (pdfErr) {
-        console.error("[createPO] PDF attachment failed (non-fatal):", pdfErr);
+        console.error("[createPO] PDF generation/upload failed (non-fatal):", pdfErr);
       }
     }
 
