@@ -55,13 +55,7 @@ export async function createPO(shipmentRecordId: string): Promise<{ id: string; 
     ? String(orderRecord.fields["Customer Name"] ?? "")
     : String(record.fields["Ship To Name"] ?? "");
 
-  const orderNumber = String(orderRecord?.fields["Order Number"] ?? "").replace(/^#/, "");
   const vendorName = firstLookup(record.fields["Name (from Vendor)"]) ?? "";
-  const docNumberBase = `${orderNumber}${vendorName ? `-${vendorName}` : ""}`;
-  // Always override — never let a stale "PO Number" from a previous run bleed
-  // through the mapper. Fall back to the Airtable record ID if the shipment
-  // has no linked order yet (manually-created shipments).
-  basePayload["DocNumber"] = (docNumberBase || shipmentRecordId).slice(0, 21);
 
   // Override Memo to include customer name
   if (customerName) {

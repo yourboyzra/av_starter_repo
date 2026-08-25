@@ -130,7 +130,6 @@ export const quickbooksSpecs: ProviderSpecs = {
       const poAmount = Number(fields["PO Amount"] ?? 0);
       const orderNumber = firstLookup(fields["Order Number (from Order)"]);
       const shipmentName = String(fields["Shipment Name"] ?? airtableRecordId);
-      const poNumber = String(fields["PO Number"] ?? "");
 
       const shipLine1 = firstLookup(fields["Ship To Address Line 1 (from Order)"]);
       const shipLine2 = firstLookup(fields["Ship To Address Line 2 (from Order)"]);
@@ -140,7 +139,6 @@ export const quickbooksSpecs: ProviderSpecs = {
       const shipCountry = firstLookup(fields["Ship To Country (from Order)"]);
 
       return {
-        ...(poNumber ? { DocNumber: poNumber } : {}),
         TxnDate: new Date().toISOString().slice(0, 10),
         VendorRef: { value: vendorId },
         APAccountRef: { value: apAccountId },
