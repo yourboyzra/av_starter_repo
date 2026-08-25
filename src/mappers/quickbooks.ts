@@ -75,7 +75,6 @@ export const quickbooksSpecs: ProviderSpecs = {
         "QB Vendor ID": v.Id,
         Name: v.DisplayName,
         ...(v.PrimaryPhone?.FreeFormNumber ? { Phone: v.PrimaryPhone.FreeFormNumber } : {}),
-        ...(v.PrimaryEmailAddr?.Address ? { Email: v.PrimaryEmailAddr.Address } : {}),
         ...(v.BillAddr?.Line1 ? { "Address Line 1": v.BillAddr.Line1 } : {}),
         ...(v.BillAddr?.City ? { City: v.BillAddr.City } : {}),
         ...(v.BillAddr?.CountrySubDivisionCode ? { State: v.BillAddr.CountrySubDivisionCode } : {}),
