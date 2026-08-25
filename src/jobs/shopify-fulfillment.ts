@@ -81,6 +81,7 @@ export async function pushShopifyFulfillments(orderId: string): Promise<PushShop
         anyUnmatched = true;
         continue;
       }
+      if (match.fulfillableQuantity === 0) continue;
       const group = groups.get(match.fulfillmentOrderId) ?? [];
       group.push({ id: match.fulfillmentOrderLineItemId, quantity: match.fulfillableQuantity });
       groups.set(match.fulfillmentOrderId, group);

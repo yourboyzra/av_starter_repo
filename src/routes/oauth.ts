@@ -32,6 +32,8 @@ export const oauth = new Hono();
 // Shopify OAuth flow without needing Shopify to sign the request first.
 // Protected by INTERNAL_JOB_SECRET so it can't be triggered by anyone else.
 oauth.get("/shopify/install", (c) => {
+  const token = c.req.query("token");
+  if (token !== env.INTERNAL_JOB_SECRET) return c.json({ error: "unauthorized" }, 401);
   const shop = c.req.query("shop");
   if (!isValidShopDomain(shop)) return c.json({ error: "missing or invalid shop param" }, 400);
   const redirectUri = `${env.OAUTH_REDIRECT_BASE_URL}/oauth/shopify/callback`;
