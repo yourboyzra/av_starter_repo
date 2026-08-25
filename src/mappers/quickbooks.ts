@@ -32,22 +32,6 @@ const PO_STATUS: Record<string, string> = {
   Closed: "Closed",
 };
 
-export interface QBVendor {
-  Id: string;
-  SyncToken: string;
-  MetaData: { LastUpdatedTime: string };
-  DisplayName: string;
-  PrimaryPhone?: { FreeFormNumber?: string };
-  PrimaryEmailAddr?: { Address?: string };
-  BillAddr?: {
-    Line1?: string;
-    City?: string;
-    CountrySubDivisionCode?: string;
-    PostalCode?: string;
-    Country?: string;
-  };
-}
-
 export interface QBPurchaseOrder {
   Id: string;
   SyncToken: string;
@@ -62,28 +46,6 @@ export interface QBPurchaseOrder {
 }
 
 export const quickbooksSpecs: ProviderSpecs = {
-  vendor: {
-    table: "Warehouse Vendors",
-    idField: "QB Vendor ID",
-    syncedAtField: "QB Synced At",
-    statusField: "QB Sync Status",
-    errorField: "QB Sync Error",
-
-    mapIn(rec: ExternalRecord): Fields {
-      const v = rec.raw as QBVendor;
-      return {
-        "QB Vendor ID": v.Id,
-        Name: v.DisplayName,
-        ...(v.PrimaryPhone?.FreeFormNumber ? { Phone: v.PrimaryPhone.FreeFormNumber } : {}),
-        ...(v.BillAddr?.Line1 ? { "Address Line 1": v.BillAddr.Line1 } : {}),
-        ...(v.BillAddr?.City ? { City: v.BillAddr.City } : {}),
-        ...(v.BillAddr?.CountrySubDivisionCode ? { State: v.BillAddr.CountrySubDivisionCode } : {}),
-        ...(v.BillAddr?.PostalCode ? { Zip: v.BillAddr.PostalCode } : {}),
-        ...(v.BillAddr?.Country ? { Country: v.BillAddr.Country } : {}),
-      };
-    },
-  },
-
   purchase_order: {
     table: "Shipments",
     idField: "QB PO ID",
