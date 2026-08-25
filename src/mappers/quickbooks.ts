@@ -164,7 +164,6 @@ export const quickbooksSpecs: ProviderSpecs = {
             Description: shipmentName,
             ItemBasedExpenseLineDetail: {
               ItemRef: { value: "1561", name: "Custom Shades" },
-              AccountRef: { value: "99" },
               Qty: 1,
               UnitPrice: poAmount,
             },

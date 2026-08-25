@@ -75,7 +75,11 @@ app.post("/jobs/quickbooks/create-po", async (c) => {
   if (!jobAuthorized(c)) return c.json({ error: "unauthorized" }, 401);
   const body = await c.req.json<{ recordId?: string }>();
   if (!body.recordId) return c.json({ error: "recordId is required" }, 400);
-  return c.json({ ok: true, ...(await createPO(body.recordId)) });
+  try {
+    return c.json({ ok: true, ...(await createPO(body.recordId)) });
+  } catch (err) {
+    return c.json({ ok: false, error: String(err) }, 500);
+  }
 });
 
 /**

@@ -96,7 +96,6 @@ export async function createPO(shipmentRecordId: string): Promise<{ id: string; 
         Description: buildLineDescription(f),
         ItemBasedExpenseLineDetail: {
           ItemRef: { value: "1561", name: "Custom Shades" },
-          AccountRef: { value: "99" },
           Qty: qty,
           UnitPrice: unitPrice,
         },
@@ -109,7 +108,6 @@ export async function createPO(shipmentRecordId: string): Promise<{ id: string; 
         Amount: poAmount,
         ItemBasedExpenseLineDetail: {
           ItemRef: { value: "1561", name: "Custom Shades" },
-          AccountRef: { value: "99" },
           Qty: 1,
           UnitPrice: poAmount,
         },
