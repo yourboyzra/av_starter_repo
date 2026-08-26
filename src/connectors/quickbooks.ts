@@ -88,17 +88,40 @@ function normalizeEntity(entity: string, obj: QBEntity): ExternalRecord {
 }
 
 /**
- * Create or update a QB PurchaseOrder, returning both the Id and DocNumber
- * so callers can write the human-readable PO number back to Airtable
- * immediately without waiting for the next inbound sync cycle.
+ * Query QB for the highest numeric PurchaseOrder DocNumber and return the
+ * next one as a string. Used to assign an explicit sequential number when
+ * QB's Custom Transaction Numbers setting is ON.
+ *
+ * Throws if QB returns no POs or if the last DocNumber isn't a plain integer
+ * (e.g., has a dash — which would mean something is still misconfigured).
  */
+export async function getNextPoDocNumber(): Promise<string> {
+  const qs = new URLSearchParams({
+    query: "SELECT DocNumber FROM PurchaseOrder ORDERBY DocNumber DESC MAXRESULTS 1",
+  });
+  const res = await qbRequest<{ QueryResponse: { PurchaseOrder?: Array<{ DocNumber?: string }> } }>(
+    "GET",
+    `query?${qs}`
+  );
+  const last = res.QueryResponse?.PurchaseOrder?.[0]?.DocNumber;
+  const num = last ? parseInt(last, 10) : NaN;
+  if (!last || isNaN(num) || num <= 0) {
+    throw new Error(`[getNextPoDocNumber] Cannot determine next PO number — last QB DocNumber: ${String(last)}`);
+  }
+  console.log("[getNextPoDocNumber] last DocNumber:", last, "→ next:", num + 1);
+  return String(num + 1);
+}
+
 export async function createOrUpdatePurchaseOrder(
   externalId: string | null,
-  data: unknown
+  data: unknown,
+  docNumber?: string
 ): Promise<{ id: string; docNumber?: string }> {
-  // Safety net: DocNumber must never come from Airtable — QB assigns it.
+  // Strip any DocNumber that may have leaked in from Airtable fields.
+  // If a docNumber was explicitly computed (getNextPoDocNumber), add it back.
   const safeData = { ...(data as object) } as Record<string, unknown>;
   delete safeData["DocNumber"];
+  if (docNumber) safeData["DocNumber"] = docNumber;
   console.log("[createOrUpdatePurchaseOrder] payload keys:", Object.keys(safeData), "externalId:", externalId);
 
   if (externalId) {
@@ -119,15 +142,14 @@ export async function createOrUpdatePurchaseOrder(
   const resultKey = Object.keys(result).find((k) => k !== "time");
   if (!resultKey || !result[resultKey]?.Id) throw new Error("QuickBooks purchaseorder create returned no Id");
   const id = result[resultKey]!.Id;
-  let docNumber = result[resultKey]!.DocNumber as string | undefined;
-  // When Custom Transaction Numbers is off, QB auto-assigns DocNumber but may
-  // not echo it in the POST response — fetch it with a GET.
-  if (!docNumber) {
+  let resultDocNumber = result[resultKey]!.DocNumber as string | undefined;
+  // QB may not echo DocNumber in the POST response — fall back to a GET.
+  if (!resultDocNumber) {
     const fetched = await qbRequest<Record<string, QBEntity>>("GET", `purchaseorder/${id}`);
     const fetchedKey = Object.keys(fetched).find((k) => k !== "time");
-    docNumber = fetchedKey ? (fetched[fetchedKey]!.DocNumber as string | undefined) : undefined;
+    resultDocNumber = fetchedKey ? (fetched[fetchedKey]!.DocNumber as string | undefined) : undefined;
   }
-  return { id, docNumber };
+  return { id, docNumber: resultDocNumber };
 }
 
 export const quickbooksConnector: Connector = {

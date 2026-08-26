@@ -1,6 +1,6 @@
 import { airtable } from "../lib/airtable.js";
 import { quickbooksSpecs } from "../mappers/quickbooks.js";
-import { createOrUpdatePurchaseOrder } from "../connectors/quickbooks.js";
+import { createOrUpdatePurchaseOrder, getNextPoDocNumber } from "../connectors/quickbooks.js";
 import { r2Configured, uploadToR2 } from "../lib/r2.js";
 import { firstLookup } from "../mappers/utils.js";
 import { generatePoPdf } from "../lib/po-pdf.js";
@@ -115,7 +115,8 @@ export async function createPO(shipmentRecordId: string): Promise<{ id: string; 
   const externalId = typeof currentId === "string" && currentId ? currentId : null;
 
   try {
-    const { id, docNumber } = await createOrUpdatePurchaseOrder(externalId, payload);
+    const nextDocNumber = externalId ? undefined : await getNextPoDocNumber();
+    const { id, docNumber } = await createOrUpdatePurchaseOrder(externalId, payload, nextDocNumber);
 
     await airtable.update("Shipments", [
       {
