@@ -96,20 +96,29 @@ function normalizeEntity(entity: string, obj: QBEntity): ExternalRecord {
  * (e.g., has a dash — which would mean something is still misconfigured).
  */
 export async function getNextPoDocNumber(): Promise<string> {
+  // Fetch recent POs and find the highest integer DocNumber in code.
+  // We can't rely on ORDERBY DocNumber DESC alone because QB IQL sorts
+  // null/blank DocNumbers first, and recently-created POs (before CTN was
+  // enabled) may have no DocNumber set.
   const qs = new URLSearchParams({
-    query: "SELECT DocNumber FROM PurchaseOrder ORDERBY DocNumber DESC MAXRESULTS 1",
+    query: "SELECT DocNumber FROM PurchaseOrder MAXRESULTS 1000",
   });
   const res = await qbRequest<{ QueryResponse: { PurchaseOrder?: Array<{ DocNumber?: string }> } }>(
     "GET",
     `query?${qs}`
   );
-  const last = res.QueryResponse?.PurchaseOrder?.[0]?.DocNumber;
-  const num = last ? parseInt(last, 10) : NaN;
-  if (!last || isNaN(num) || num <= 0) {
-    throw new Error(`[getNextPoDocNumber] Cannot determine next PO number — last QB DocNumber: ${String(last)}`);
+  const orders = res.QueryResponse?.PurchaseOrder ?? [];
+  let maxNum = 0;
+  for (const po of orders) {
+    if (!po.DocNumber) continue;
+    const n = parseInt(po.DocNumber, 10);
+    if (!isNaN(n) && n > maxNum) maxNum = n;
   }
-  console.log("[getNextPoDocNumber] last DocNumber:", last, "→ next:", num + 1);
-  return String(num + 1);
+  if (maxNum === 0) {
+    throw new Error("[getNextPoDocNumber] No numeric DocNumbers found in QB — ensure at least one PO has a valid integer PO number");
+  }
+  console.log("[getNextPoDocNumber] highest DocNumber:", maxNum, "→ next:", maxNum + 1);
+  return String(maxNum + 1);
 }
 
 export async function createOrUpdatePurchaseOrder(
