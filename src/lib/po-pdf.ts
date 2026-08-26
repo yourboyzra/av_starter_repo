@@ -127,10 +127,10 @@ function draw(doc: Doc, opts: POPdfOptions) {
   doc.text("+17043766213",            midX, cY + 11);
   doc.text("www.luxlampshades.com",   midX, cY + 22);
 
-  // Logo (top right)
+  // Logo (top right) — constrained to fit above the header rule at y = MT + 65
   try {
     const img = readFileSync(LOGO_PATH);
-    doc.image(img, ML + CW - 115, MT - 4, { width: 115 });
+    doc.image(img, ML + CW - 90, MT - 4, { fit: [90, 62] });
   } catch { /* logo missing — skip */ }
 
   y = MT + 65; // enough clearance for header + logo
