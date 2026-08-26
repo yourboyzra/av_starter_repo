@@ -10,6 +10,7 @@ import { refreshWebhooks } from "./jobs/refresh-webhooks.js";
 import { pushShopifyFulfillments } from "./jobs/shopify-fulfillment.js";
 import { fetchAndWriteRates, purchaseLabel } from "./jobs/shipstation-rates.js";
 import { createPO } from "./jobs/quickbooks-po.js";
+import { regeneratePoPdfs } from "./jobs/regenerate-po-pdfs.js";
 import { getAccessToken } from "./lib/oauth.js";
 import { registry } from "./connectors/registry.js";
 import { pushOutbound } from "./sync/engine.js";
@@ -78,6 +79,15 @@ app.post("/jobs/quickbooks/create-po", async (c) => {
   if (!body.recordId) return c.json({ error: "recordId is required" }, 400);
   try {
     return c.json({ ok: true, ...(await createPO(body.recordId)) });
+  } catch (err) {
+    return c.json({ ok: false, error: String(err) }, 500);
+  }
+});
+
+app.post("/jobs/quickbooks/regenerate-po-pdfs", async (c) => {
+  if (!jobAuthorized(c)) return c.json({ error: "unauthorized" }, 401);
+  try {
+    return c.json({ ok: true, ...(await regeneratePoPdfs()) });
   } catch (err) {
     return c.json({ ok: false, error: String(err) }, 500);
   }
