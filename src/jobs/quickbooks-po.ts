@@ -123,7 +123,7 @@ export async function createPO(shipmentRecordId: string): Promise<{ id: string; 
         id: shipmentRecordId,
         fields: {
           "QB PO ID": id,
-          "PO Number": docNumber || String(basePayload["DocNumber"] ?? "") || id,
+          "PO Number": docNumber || nextDocNumber || id,
           "QB Synced At": new Date().toISOString(),
           "QB Sync Status": "Synced",
           "QB Sync Error": "",
@@ -136,7 +136,7 @@ export async function createPO(shipmentRecordId: string): Promise<{ id: string; 
     if (r2Configured()) {
       try {
         const shipAddr = basePayload["ShipAddr"] as Record<string, unknown> | undefined;
-        const poDocNumber = docNumber || String(basePayload["DocNumber"] ?? "") || id;
+        const poDocNumber = docNumber || nextDocNumber || id;
         const pdfBuf = await generatePoPdf({
           docNumber: poDocNumber,
           txnDate: String(basePayload["TxnDate"] ?? new Date().toISOString().slice(0, 10)),
