@@ -96,12 +96,17 @@ export async function createOrUpdatePurchaseOrder(
   externalId: string | null,
   data: unknown
 ): Promise<{ id: string; docNumber?: string }> {
+  // Safety net: DocNumber must never come from Airtable — QB assigns it.
+  const safeData = { ...(data as object) } as Record<string, unknown>;
+  delete safeData["DocNumber"];
+  console.log("[createOrUpdatePurchaseOrder] payload keys:", Object.keys(safeData), "externalId:", externalId);
+
   if (externalId) {
     const current = await qbRequest<Record<string, QBEntity>>("GET", `purchaseorder/${externalId}`);
     const key = Object.keys(current).find((k) => k !== "time");
     const syncToken = key ? current[key]?.SyncToken : undefined;
     if (!syncToken) throw new Error(`Could not read SyncToken for purchaseorder ${externalId}`);
-    const payload = { ...(data as object), Id: externalId, SyncToken: syncToken, sparse: true };
+    const payload = { ...safeData, Id: externalId, SyncToken: syncToken, sparse: true };
     const result = await qbRequest<Record<string, QBEntity>>("POST", "purchaseorder?operation=update", payload);
     const resultKey = Object.keys(result).find((k) => k !== "time");
     return {
@@ -110,13 +115,19 @@ export async function createOrUpdatePurchaseOrder(
     };
   }
 
-  const result = await qbRequest<Record<string, QBEntity>>("POST", "purchaseorder", data);
+  const result = await qbRequest<Record<string, QBEntity>>("POST", "purchaseorder", safeData);
   const resultKey = Object.keys(result).find((k) => k !== "time");
   if (!resultKey || !result[resultKey]?.Id) throw new Error("QuickBooks purchaseorder create returned no Id");
-  return {
-    id: result[resultKey]!.Id,
-    docNumber: result[resultKey]!.DocNumber as string | undefined,
-  };
+  const id = result[resultKey]!.Id;
+  let docNumber = result[resultKey]!.DocNumber as string | undefined;
+  // When Custom Transaction Numbers is off, QB auto-assigns DocNumber but may
+  // not echo it in the POST response — fetch it with a GET.
+  if (!docNumber) {
+    const fetched = await qbRequest<Record<string, QBEntity>>("GET", `purchaseorder/${id}`);
+    const fetchedKey = Object.keys(fetched).find((k) => k !== "time");
+    docNumber = fetchedKey ? (fetched[fetchedKey]!.DocNumber as string | undefined) : undefined;
+  }
+  return { id, docNumber };
 }
 
 export const quickbooksConnector: Connector = {
