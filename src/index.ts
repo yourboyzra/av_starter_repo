@@ -141,7 +141,7 @@ app.post("/jobs/outbound", async (c) => {
 });
 
 
-// TEMP — inspect custom fields on a PO to get DefinitionId values
+// TEMP — scan recent POs to find all distinct CustomField DefinitionIds + Names
 app.get("/jobs/qb-po-custom-fields", async (c) => {
   if (!jobAuthorized(c)) return c.json({ error: "unauthorized" }, 401);
   const realmId = process.env.QUICKBOOKS_REALM_ID!;
@@ -149,14 +149,23 @@ app.get("/jobs/qb-po-custom-fields", async (c) => {
     ? "quickbooks.api.intuit.com"
     : "sandbox-quickbooks.api.intuit.com";
   const token = await getAccessToken("quickbooks", realmId);
-  const docNumber = c.req.query("docNumber") ?? "11378";
-  const qs = new URLSearchParams({ query: `SELECT * FROM PurchaseOrder WHERE DocNumber = '${docNumber}'`, minorversion: "65" });
+  const qs = new URLSearchParams({ query: "SELECT * FROM PurchaseOrder MAXRESULTS 50", minorversion: "65" });
   const res = await fetch(`https://${host}/v3/company/${realmId}/query?${qs}`, {
     headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
   });
-  const data = await res.json() as { QueryResponse?: { PurchaseOrder?: { Id: string; DocNumber: string; CustomField?: unknown[] }[] } };
-  const po = data.QueryResponse?.PurchaseOrder?.[0];
-  return c.json({ Id: po?.Id, DocNumber: po?.DocNumber, CustomField: po?.CustomField ?? [] });
+  type CFEntry = { DefinitionId: string; Name?: string; Type?: string; StringValue?: string };
+  type PO = { Id: string; DocNumber?: string; CustomField?: CFEntry[] };
+  const data = await res.json() as { QueryResponse?: { PurchaseOrder?: PO[] } };
+  // Collect all unique DefinitionId+Name combos seen across all POs
+  const seen = new Map<string, { Name?: string; Type?: string; example: string }>();
+  for (const po of data.QueryResponse?.PurchaseOrder ?? []) {
+    for (const cf of po.CustomField ?? []) {
+      if (!seen.has(cf.DefinitionId)) {
+        seen.set(cf.DefinitionId, { Name: cf.Name, Type: cf.Type, example: `PO ${po.DocNumber ?? po.Id}: ${cf.StringValue ?? ""}` });
+      }
+    }
+  }
+  return c.json(Object.fromEntries([...seen.entries()].map(([id, v]) => [id, v])));
 });
 
 // TEMP — list all QB vendors with ID + active status; remove after use
