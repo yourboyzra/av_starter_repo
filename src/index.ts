@@ -153,7 +153,7 @@ app.get("/jobs/qb-po-raw", async (c) => {
   const id = c.req.query("id");
   let po: unknown;
   if (id) {
-    const res = await fetch(`https://${host}/v3/company/${realmId}/purchaseorder/${id}?minorversion=75`, {
+    const res = await fetch(`https://${host}/v3/company/${realmId}/purchaseorder/${id}?minorversion=70&include=enhancedAllCustomFields`, {
       headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
     });
     const data = await res.json() as Record<string, unknown>;
