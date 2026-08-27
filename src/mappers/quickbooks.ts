@@ -107,7 +107,7 @@ export const quickbooksSpecs: ProviderSpecs = {
         APAccountRef: { value: apAccountId },
         Memo: [orderNumber, shipmentName].filter(Boolean).join(" — "),
         ...(estimateNum ? {
-          enhancedCustomField: [{
+          CustomField: [{
             DefinitionId: "3200000000000017401",
             Name: "Estimate#",
             Type: "StringType",
