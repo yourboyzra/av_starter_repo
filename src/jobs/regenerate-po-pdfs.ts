@@ -34,7 +34,7 @@ async function regenerateOnePoPdf(shipmentId: string): Promise<"ok" | "skipped">
 
   const vendorName = firstLookup(record.fields["Name (from Vendor)"]) ?? "";
 
-  const rawOrderNum = firstLookup(record.fields["Order Number (from Order)"]) ?? "";
+  const rawOrderNum = String(orderRecord?.fields["Order Number"] ?? "");
   const estimateNumber = rawOrderNum.replace(/^#/, "").trim() || undefined;
 
   // Use QB Synced At as the PO date; fall back to today
