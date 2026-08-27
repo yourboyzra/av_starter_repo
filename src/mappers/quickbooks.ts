@@ -99,11 +99,21 @@ export const quickbooksSpecs: ProviderSpecs = {
       const shipZip = firstLookup(fields["Ship To Zip (from Order)"]);
       const shipCountry = firstLookup(fields["Ship To Country (from Order)"]);
 
+      const estimateNum = orderNumber ? orderNumber.replace(/^#/, "").trim() : null;
+
       return {
         TxnDate: new Date().toISOString().slice(0, 10),
         VendorRef: { value: vendorId },
         APAccountRef: { value: apAccountId },
         Memo: [orderNumber, shipmentName].filter(Boolean).join(" — "),
+        ...(estimateNum ? {
+          CustomField: [{
+            DefinitionId: "3200000000000017401",
+            Name: "Estimate#",
+            Type: "StringType",
+            StringValue: estimateNum,
+          }],
+        } : {}),
         ...(shipLine1 ? {
           ShipAddr: {
             Line1: shipLine1,
