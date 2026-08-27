@@ -57,6 +57,10 @@ export async function createPO(shipmentRecordId: string): Promise<{ id: string; 
 
   const vendorName = firstLookup(record.fields["Name (from Vendor)"]) ?? "";
 
+  // Strip "#" prefix from Shopify order number (e.g. "#13969" -> "13969")
+  const rawOrderNum = firstLookup(record.fields["Order Number (from Order)"]) ?? "";
+  const estimateNumber = rawOrderNum.replace(/^#/, "").trim() || undefined;
+
   // Override Memo to include customer name
   if (customerName) {
     basePayload["Memo"] = [customerName, basePayload["Memo"]].filter(Boolean).join(" — ");
@@ -140,6 +144,7 @@ export async function createPO(shipmentRecordId: string): Promise<{ id: string; 
         const pdfBuf = await generatePoPdf({
           docNumber: poDocNumber,
           txnDate: String(basePayload["TxnDate"] ?? new Date().toISOString().slice(0, 10)),
+          estimateNumber,
           vendor: {
             name: vendorName || "Vendor",
             addr: {

@@ -34,6 +34,9 @@ async function regenerateOnePoPdf(shipmentId: string): Promise<"ok" | "skipped">
 
   const vendorName = firstLookup(record.fields["Name (from Vendor)"]) ?? "";
 
+  const rawOrderNum = firstLookup(record.fields["Order Number (from Order)"]) ?? "";
+  const estimateNumber = rawOrderNum.replace(/^#/, "").trim() || undefined;
+
   // Use QB Synced At as the PO date; fall back to today
   const txnDate = String(record.fields["QB Synced At"] ?? new Date().toISOString()).slice(0, 10);
 
@@ -77,6 +80,7 @@ async function regenerateOnePoPdf(shipmentId: string): Promise<"ok" | "skipped">
   const pdfBuf = await generatePoPdf({
     docNumber: poNumber,
     txnDate,
+    estimateNumber,
     vendor: {
       name: vendorName || "Vendor",
       addr: {

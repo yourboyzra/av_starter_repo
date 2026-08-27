@@ -52,6 +52,7 @@ export interface POLineItem {
 export interface POPdfOptions {
   docNumber: string;
   txnDate: string; // YYYY-MM-DD
+  estimateNumber?: string; // Shopify order number (digits only, no "#")
   vendor: {
     name: string;
     addr?: {
@@ -104,7 +105,7 @@ export function generatePoPdf(opts: POPdfOptions): Promise<Buffer> {
 }
 
 function draw(doc: Doc, opts: POPdfOptions) {
-  const { docNumber, txnDate, vendor, shipTo, customerName, lineItems, totalAmt } = opts;
+  const { docNumber, txnDate, estimateNumber, vendor, shipTo, customerName, lineItems, totalAmt } = opts;
   let y = MT;
 
   // ── HEADER ──────────────────────────────────────────────────────────────────
@@ -194,6 +195,7 @@ function draw(doc: Doc, opts: POPdfOptions) {
   const detailLinesL = [
     `Purchase Order no.: ${docNumber}`,
     `Purchase Order date: ${fmtDate(txnDate)}`,
+    ...(estimateNumber ? [`Estimate #: ${estimateNumber}`] : []),
   ];
   const detailLinesR: string[] = [];
   if (customerName) detailLinesR.push(`Customer: ${customerName}`);
