@@ -171,23 +171,6 @@ app.get("/jobs/qb-po-raw", async (c) => {
   return c.json(po ?? { error: "not found" });
 });
 
-// TEMP — list all QB vendors with ID + active status; remove after use
-app.get("/jobs/qb-vendors", async (c) => {
-  if (!jobAuthorized(c)) return c.json({ error: "unauthorized" }, 401);
-  const realmId = process.env.QUICKBOOKS_REALM_ID!;
-  const host = process.env.QUICKBOOKS_ENVIRONMENT === "production"
-    ? "quickbooks.api.intuit.com"
-    : "sandbox-quickbooks.api.intuit.com";
-  const token = await getAccessToken("quickbooks", realmId);
-  const qs = new URLSearchParams({ query: "SELECT Id, DisplayName, Active FROM Vendor MAXRESULTS 1000", minorversion: "65" });
-  const res = await fetch(`https://${host}/v3/company/${realmId}/query?${qs}`, {
-    headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
-  });
-  const data = await res.json() as { QueryResponse?: { Vendor?: { Id: string; DisplayName: string; Active: boolean }[] } };
-  const vendors = (data.QueryResponse?.Vendor ?? [])
-    .sort((a, b) => a.DisplayName.localeCompare(b.DisplayName));
-  return c.json(vendors);
-});
 
 app.get("/ip", async (c) => {
   const res = await fetch("https://api.ipify.org?format=json");
