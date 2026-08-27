@@ -92,9 +92,6 @@ export const quickbooksSpecs: ProviderSpecs = {
       const orderNumber = firstLookup(fields["Order Number (from Order)"]);
       const shipmentName = String(fields["Shipment Name"] ?? airtableRecordId);
 
-      // Strip leading "#" — Shopify order names come in as "#13945", QB wants "13945"
-      const estimateNumber = orderNumber ? orderNumber.replace(/^#/, "").trim() : "";
-
       const shipLine1 = firstLookup(fields["Ship To Address Line 1 (from Order)"]);
       const shipLine2 = firstLookup(fields["Ship To Address Line 2 (from Order)"]);
       const shipCity = firstLookup(fields["Ship To City (from Order)"]);
@@ -107,10 +104,6 @@ export const quickbooksSpecs: ProviderSpecs = {
         VendorRef: { value: vendorId },
         APAccountRef: { value: apAccountId },
         Memo: [orderNumber, shipmentName].filter(Boolean).join(" — "),
-        // DefinitionId "1" is displayed as "Estimate#" in the QB PO UI
-        ...(estimateNumber ? {
-          CustomField: [{ DefinitionId: "1", Name: "Production PO #", Type: "StringType", StringValue: estimateNumber }],
-        } : {}),
         ...(shipLine1 ? {
           ShipAddr: {
             Line1: shipLine1,
