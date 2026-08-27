@@ -141,6 +141,24 @@ app.post("/jobs/outbound", async (c) => {
 });
 
 
+// TEMP — inspect custom fields on a PO to get DefinitionId values
+app.get("/jobs/qb-po-custom-fields", async (c) => {
+  if (!jobAuthorized(c)) return c.json({ error: "unauthorized" }, 401);
+  const realmId = process.env.QUICKBOOKS_REALM_ID!;
+  const host = process.env.QUICKBOOKS_ENVIRONMENT === "production"
+    ? "quickbooks.api.intuit.com"
+    : "sandbox-quickbooks.api.intuit.com";
+  const token = await getAccessToken("quickbooks", realmId);
+  const docNumber = c.req.query("docNumber") ?? "11378";
+  const qs = new URLSearchParams({ query: `SELECT * FROM PurchaseOrder WHERE DocNumber = '${docNumber}'`, minorversion: "65" });
+  const res = await fetch(`https://${host}/v3/company/${realmId}/query?${qs}`, {
+    headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+  });
+  const data = await res.json() as { QueryResponse?: { PurchaseOrder?: { Id: string; DocNumber: string; CustomField?: unknown[] }[] } };
+  const po = data.QueryResponse?.PurchaseOrder?.[0];
+  return c.json({ Id: po?.Id, DocNumber: po?.DocNumber, CustomField: po?.CustomField ?? [] });
+});
+
 // TEMP — list all QB vendors with ID + active status; remove after use
 app.get("/jobs/qb-vendors", async (c) => {
   if (!jobAuthorized(c)) return c.json({ error: "unauthorized" }, 401);
