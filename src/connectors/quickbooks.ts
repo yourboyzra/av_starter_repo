@@ -139,7 +139,7 @@ export async function createOrUpdatePurchaseOrder(
     const syncToken = key ? current[key]?.SyncToken : undefined;
     if (!syncToken) throw new Error(`Could not read SyncToken for purchaseorder ${externalId}`);
     const payload = { ...safeData, Id: externalId, SyncToken: syncToken, sparse: true };
-    const result = await qbRequest<Record<string, QBEntity>>("POST", "purchaseorder?operation=update", payload);
+    const result = await qbRequest<Record<string, QBEntity>>("POST", "purchaseorder?operation=update&minorversion=70", payload);
     const resultKey = Object.keys(result).find((k) => k !== "time");
     return {
       id: resultKey ? (result[resultKey]!.Id ?? externalId) : externalId,
@@ -147,7 +147,7 @@ export async function createOrUpdatePurchaseOrder(
     };
   }
 
-  const result = await qbRequest<Record<string, QBEntity>>("POST", "purchaseorder", safeData);
+  const result = await qbRequest<Record<string, QBEntity>>("POST", "purchaseorder?minorversion=70", safeData);
   const resultKey = Object.keys(result).find((k) => k !== "time");
   if (!resultKey || !result[resultKey]?.Id) throw new Error("QuickBooks purchaseorder create returned no Id");
   const id = result[resultKey]!.Id;
