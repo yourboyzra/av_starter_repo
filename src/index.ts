@@ -141,31 +141,34 @@ app.post("/jobs/outbound", async (c) => {
 });
 
 
-// TEMP — scan recent POs to find all distinct CustomField DefinitionIds + Names
-app.get("/jobs/qb-po-custom-fields", async (c) => {
+// TEMP — return full raw QB PO object to inspect all available fields
+app.get("/jobs/qb-po-raw", async (c) => {
   if (!jobAuthorized(c)) return c.json({ error: "unauthorized" }, 401);
   const realmId = process.env.QUICKBOOKS_REALM_ID!;
   const host = process.env.QUICKBOOKS_ENVIRONMENT === "production"
     ? "quickbooks.api.intuit.com"
     : "sandbox-quickbooks.api.intuit.com";
   const token = await getAccessToken("quickbooks", realmId);
-  const qs = new URLSearchParams({ query: "SELECT * FROM PurchaseOrder MAXRESULTS 50", minorversion: "65" });
-  const res = await fetch(`https://${host}/v3/company/${realmId}/query?${qs}`, {
-    headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
-  });
-  type CFEntry = { DefinitionId: string; Name?: string; Type?: string; StringValue?: string };
-  type PO = { Id: string; DocNumber?: string; CustomField?: CFEntry[] };
-  const data = await res.json() as { QueryResponse?: { PurchaseOrder?: PO[] } };
-  // Collect all unique DefinitionId+Name combos seen across all POs
-  const seen = new Map<string, { Name?: string; Type?: string; example: string }>();
-  for (const po of data.QueryResponse?.PurchaseOrder ?? []) {
-    for (const cf of po.CustomField ?? []) {
-      if (!seen.has(cf.DefinitionId)) {
-        seen.set(cf.DefinitionId, { Name: cf.Name, Type: cf.Type, example: `PO ${po.DocNumber ?? po.Id}: ${cf.StringValue ?? ""}` });
-      }
-    }
+  const docNumber = c.req.query("docNumber");
+  const id = c.req.query("id");
+  let po: unknown;
+  if (id) {
+    const res = await fetch(`https://${host}/v3/company/${realmId}/purchaseorder/${id}?minorversion=75`, {
+      headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+    });
+    const data = await res.json() as Record<string, unknown>;
+    const key = Object.keys(data).find((k) => k !== "time");
+    po = key ? data[key] : data;
+  } else {
+    const q = docNumber ? `SELECT * FROM PurchaseOrder WHERE DocNumber = '${docNumber}'` : "SELECT * FROM PurchaseOrder MAXRESULTS 1";
+    const qs = new URLSearchParams({ query: q, minorversion: "75" });
+    const res = await fetch(`https://${host}/v3/company/${realmId}/query?${qs}`, {
+      headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+    });
+    const data = await res.json() as { QueryResponse?: { PurchaseOrder?: unknown[] } };
+    po = data.QueryResponse?.PurchaseOrder?.[0];
   }
-  return c.json(Object.fromEntries([...seen.entries()].map(([id, v]) => [id, v])));
+  return c.json(po ?? { error: "not found" });
 });
 
 // TEMP — list all QB vendors with ID + active status; remove after use
